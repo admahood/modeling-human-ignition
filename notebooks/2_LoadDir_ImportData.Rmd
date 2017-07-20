@@ -1,0 +1,56 @@
+---
+title: "2. Load directories and import data"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
+
+### Directories
+```{r}
+raw_dirc <- "/Volumes/LaCie 3TB/data/climate/GridMET_Historic_Daily_1979_2016/"
+dirc <- "/Users/NateM/Dropbox/Professional/RScripts/Mietkiewicz_etal_HumanIgnProb/data"
+dir_proc <- "/processed/historical_gridmet/"
+```
+```{r}
+#EPSG:102003 USA_Contiguous_Albers_Equal_Area_Conic
+proj_ea <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
+
+#EPSG:102005 USA_Contiguous_Equidistant_Conic
+proj_ed <- "+proj=eqdc +lat_0=39 +lon_0=-96 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"
+
+#WGS 84 the gridmet projection
+proj_ll <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+```
+
+### Spatial masks
+```{r}
+usa_shp <- st_read(dsn = paste0(dirc, "/bounds/state"),
+                   layer = "cb_2016_us_state_20m", quiet= TRUE) %>%
+  st_transform(., proj_ea) %>%
+  subset(., NAME != "Alaska" &
+           NAME != "Hawaii" &
+           NAME != "Puerto Rico") %>%
+  mutate(area_m2 = as.numeric(st_area(geometry)),
+         StArea_km2 = area_m2/1000000,
+         group = 1) %>%
+  st_simplify(., preserveTopology = TRUE)
+plot(usa_shp[5])
+```
+
+```{r}
+eco = paste0(dirc, "/bounds/ecoregion/us_eco_l3")
+ecoreg <- st_read(dsn = eco, layer = "us_eco_l3", quiet= TRUE) %>%
+  st_transform(., proj_ea) %>%
+  st_simplify(., preserveTopology = TRUE, dTolerance = 1000) %>%
+  mutate(area_m2 = as.numeric(st_area(geometry)),
+         EcoArea_km2 = area_m2/1000000)
+plot(ecoreg[2])
+```
+
+

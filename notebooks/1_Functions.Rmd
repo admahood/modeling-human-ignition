@@ -1,0 +1,242 @@
+---
+title: "Custom Aggregation Functions"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
+
+### Liabaries
+```{r}
+library(raster)
+library(ncdf4)
+library(lubridate)
+library(rgdal)
+library(tidyverse)
+library(ClusterR)
+library(doParallel)
+library(foreach) 
+```
+
+### Functions
+```{r}
+netcdf_to_tif_numabove95 <- function(file, mask, outfolder) {
+  file_split <- file %>%
+    basename %>%
+    strsplit(split = "_") %>%
+    unlist
+  var <- file_split[1]
+  srtyear <- ifelse(nchar(file_split[2]) == 7 | nchar(file_split[2]) <= 7,
+                    substr(file_split[2], start = 1, stop = 4), "NA")
+  endyear <- ifelse(nchar(file_split[2]) > 7,
+                    substr(file_split[2], start = 5, stop = 8), srtyear)
+  
+  start_date <- as.Date(paste(srtyear, "01", "01", sep = "-"))
+  end_date <- as.Date(paste(endyear, "12", "31", sep = "-"))
+  date_seq <- seq(start_date, end_date, by = "1 day")
+  monthly_seq <- seq(start_date, end_date, by = "1 month")
+  month_seq <- month(date_seq)
+  
+  nc <- nc_open(file)
+  nc_att <- attributes(nc$var)$names
+  ncvar <- ncvar_get(nc, nc_att)
+  # remove unneeded object for memory conservation
+  rm(ncvar)
+  gc()
+  tvar <- aperm(ncvar, c(3,2,1))
+  # remove unneeded object for memory conservation
+  rm(tvar)
+  gc()
+  proj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+  rbrck <- brick(tvar, crs= proj)
+  extent(rbrck) <- c(-124.772163391113, -67.06383005778, 25.0626894632975, 49.3960227966309) #from metadata in Arc or IDRISI, when you open .nc file
+
+  q95 <- calc(rbrck, fun = function(x){x > quantile(x, probs = 0.90, na.rm =TRUE)})
+  # remove unneeded object for memory conservation
+  rm(rbrck)
+  gc()
+  res <- stackApply(q95, month_seq, fun = sum)
+  # remove unneeded object for memory conservation
+  rm(q95)
+  gc()
+  names(res) <- paste(var, unique(year(monthly_seq)), unique(month(monthly_seq)), 
+                                unique(month(monthly_seq, label = TRUE)),
+                                sep = "_")
+  masked_res <- mask(res, mask)
+  dir.create(paste0(dirc, dir_proc, var), showWarnings = FALSE)
+  dir.create(paste0(dirc, dir_proc, var, "/", outfolder), showWarnings = FALSE)
+  out <- paste0(dirc, dir_proc, var,  "/", outfolder, "/")
+  writeRaster(masked_res, filename = paste0(out,names(masked_res)),
+              format = "GTiff", bylayer=TRUE, overwrite = TRUE)
+  return(paste("File", names(masked_res), "written"))
+}
+
+```
+#### If the data are in daily netcdf format this unpacks, aggregates by MEAN, and converts to tiff with a systematic naming convention
+```{r}
+netcdf_day_to_tif_month <- function(file, mask, outfolder) {
+  file_split <- file %>%
+    basename %>%
+    strsplit(split = "_") %>%
+    unlist
+  var <- file_split[1]
+  year <- substr(file_split[2], start = 1, stop = 4)
+
+  start_date <- as.Date(paste(year, "01", "01", sep = "-"))
+  end_date <- as.Date(paste(year, "12", "31", sep = "-"))
+  date_seq <- seq(start_date, end_date, by = "1 day")
+  monthly_seq <- seq(start_date, end_date, by = "1 month")
+  month_seq <- month(date_seq)
+  
+  nc <- nc_open(file)
+  nc_att <- attributes(nc$var)$names
+  ncvar <- ncvar_get(nc, nc_att)
+  # remove unneeded object for memory conservation
+  rm(ncvar)
+  gc()
+  tvar <- aperm(ncvar, c(3,2,1))
+  # remove unneeded object for memory conservation
+  rm(tvar)
+  gc()
+  proj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+  proj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+  rbrck <- brick(tvar, crs= proj)
+  extent(rbrck) <- c(-124.772163391113, -67.06383005778, 25.0626894632975, 49.3960227966309)
+
+  res <- stackApply(rbrck, month_seq, fun = sum)
+  # remove unneeded object for memory conservation
+  rm(rbrck)
+  gc()
+  names(res) <- paste(var, unique(year(monthly_seq)), unique(month(monthly_seq)), 
+                      unique(month(monthly_seq, label = TRUE)),
+                      sep = "_")
+  masked_res <- mask(res, mask)
+  dir.create(paste0(dirc, dir_proc, var), showWarnings = FALSE)
+  dir.create(paste0(dirc, dir_proc, var, "/", outfolder), showWarnings = FALSE)
+  out <- paste0(dirc, dir_proc, var,  "/", outfolder, "/")
+  writeRaster(masked_res, filename = paste0(out,names(masked_res)),
+              format = "GTiff", bylayer=TRUE, overwrite = TRUE)
+  return(paste("File", names(masked_res), "written"))
+}
+
+```
+#### If the data are in monthly netcdf format this unpacks and converts to tiff with a systematic naming convention
+```{r}
+netcdf_month_to_tif_month <- function(file, mask, outfolder) {
+  file_split <- file %>%
+    basename %>%
+    strsplit(split = "_") %>%
+    unlist
+  var <- file_split[1]
+  srtyear <- ifelse(nchar(file_split[2]) == 7 | nchar(file_split[2]) <= 7,
+                    substr(file_split[2], start = 1, stop = 4), "NA")
+  endyear <- ifelse(nchar(file_split[2]) > 7,
+                    substr(file_split[2], start = 5, stop = 8), srtyear)
+  
+  start_date <- as.Date(paste(srtyear, "01", "01", sep = "-"))
+  end_date <- as.Date(paste(endyear, "12", "31", sep = "-"))
+  date_seq <- seq(start_date, end_date, by = "1 day")
+  monthly_seq <- seq(start_date, end_date, by = "1 month")
+  month_seq <- month(date_seq)
+  
+  nc <- nc_open(file)
+  nc_att <- attributes(nc$var)$names
+  ncvar <- ncvar_get(nc, nc_att)
+  # remove unneeded object for memory conservation
+  rm(ncvar)
+  gc()
+  tvar <- aperm(ncvar, c(3,2,1))
+  # remove unneeded object for memory conservation
+  rm(tvar)
+  gc()
+  proj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+  rbrck <- brick(tvar, crs= proj)
+  extent(rbrck) <- c(-124.772163391113, -67.06383005778, 25.0626894632975, 49.3960227966309)
+
+  names(rbrck) <- paste(var, unique(year(monthly_seq)), unique(month(monthly_seq)), 
+                      unique(month(monthly_seq, label = TRUE)),
+                      sep = "_")
+  masked_res <- mask(rbrck, mask)
+  dir.create(paste0(dirc, dir_proc, var), showWarnings = FALSE)
+  dir.create(paste0(dirc, dir_proc, var, "/", outfolder), showWarnings = FALSE)
+  out <- paste0(dirc, dir_proc, var,  "/", outfolder, "/")
+  writeRaster(masked_res, filename = paste0(out,names(masked_res)),
+              format = "GTiff", bylayer=TRUE, overwrite = TRUE)
+  return(paste("File", names(masked_res), "written"))
+}
+```
+
+
+#### For layers 13 onward, compute the mean or sum of the previous twelve layers
+```{r}
+netcdf_month_sumperyear <- function(file, mask, outfolder) {
+  file_split <- file %>%
+    basename %>%
+    strsplit(split = "_") %>%
+    unlist
+  var <- file_split[1]
+  srtyear <- ifelse(nchar(file_split[2]) == 7 | nchar(file_split[2]) <= 7,
+                    substr(file_split[2], start = 1, stop = 4), "NA")
+  endyear <- ifelse(nchar(file_split[2]) > 7,
+                    substr(file_split[2], start = 5, stop = 8), srtyear)
+  
+  start_date <- as.Date(paste(srtyear, "01", "01", sep = "-"))
+  end_date <- as.Date(paste(endyear, "12", "31", sep = "-"))
+  date_seq <- seq(start_date, end_date, by = "1 day")
+  monthly_seq <- seq(start_date, end_date, by = "1 month")
+  month_seq <- month(date_seq)
+  
+  nc <- nc_open(file)
+  nc_att <- attributes(nc$var)$names
+  ncvar <- ncvar_get(nc, nc_att)
+  # remove unneeded object for memory conservation
+  rm(ncvar)
+  gc()
+  tvar <- aperm(ncvar, c(3,2,1))
+  # remove unneeded object for memory conservation
+  rm(tvar)
+  gc()
+  proj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+  rbrck <- brick(tvar, crs= proj)
+  extent(rbrck) <- c(-124.772163391113, -67.06383005778, 25.0626894632975, 49.3960227966309)
+  
+  n_layers <- length(names(rbrck))
+  lag <- 12
+  lagged_vals <- list()
+  counter <- 1
+  pb <- txtProgressBar(max = n_layers, style = 3)
+  for (i in 1:n_layers) {
+    if (i > lag) {
+      lagged_vals[[counter]] <- sum(subset(r, (i - lag):(i - 1)))
+      names(lagged_vals)[counter] <- paste("timestep", i, "lag", lag, sep = "_")
+      counter <- counter + 1
+    }
+    setTxtProgressBar(pb, i)
+  }
+  # remove unneeded object for memory conservation
+  rm(rbrck)
+  gc()
+  # convert the list of lagged summaries to a raster stack
+  lagged_vals <- stack(lagged_vals)
+  names(lagged_vals) <- paste(var, unique(year(monthly_seq)), unique(month(monthly_seq)), 
+                      unique(month(monthly_seq, label = TRUE)),
+                      sep = "_")
+  masked_res <- mask(lagged_vals, mask)
+  # remove unneeded object for memory conservation
+  rm(lagged_vals)
+  gc()
+  dir.create(paste0(dirc, dir_proc, var), showWarnings = FALSE)
+  dir.create(paste0(dirc, dir_proc, var, "/", outfolder), showWarnings = FALSE)
+  out <- paste0(dirc, dir_proc, var,  "/", outfolder, "/")
+  writeRaster(masked_res, filename = paste0(out,names(masked_res)),
+              format = "GTiff", bylayer=TRUE, overwrite = TRUE)
+  return(paste("File", names(masked_res), "written"))
+}
+
+```
+
