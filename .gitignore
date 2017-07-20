@@ -16,6 +16,8 @@
 
 # RStudio files
 .Rproj.user/
+*.Rproj/
+*.Rproj
 
 # produced vignettes
 vignettes/*.html
@@ -31,3 +33,14 @@ vignettes/*.pdf
 # Temporary files created by R markdown
 *.utf8.md
 *.knit.md
+*.Rproj.user
+.Rproj.user
+data/
+
+# Dropbox settings and caches
+.dropbox
+.dropbox.attr
+.dropbox.cache
+
+# R Notebook HTMLs
+*.nb.html
