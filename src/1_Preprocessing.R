@@ -1,5 +1,5 @@
 
-# Liabaries --------------------------------------------------------------
+# Libaries --------------------------------------------------------------
 library(raster)
 library(ncdf4)
 library(lubridate)
@@ -10,8 +10,10 @@ library(doParallel)
 library(foreach) 
 
 # Directories -------------------------------------------------------------
+UseCores <- detectCores() -1
 
 dirc <- "/Volumes/LaCie-2TB/data"
+dir_raw <- "/climate/raw/historical_gridmet"
 dir_proc <- "/climate/processed/historical_gridmet/"
 
 #EPSG:102003 USA_Contiguous_Albers_Equal_Area_Conic
@@ -27,7 +29,7 @@ proj_ll <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 #Import the USA States layer
 usa_shp <- st_read(dsn = paste0(dirc, "/bounds/state"),
                    layer = "cb_2016_us_state_20m", quiet= TRUE) %>%
-  st_transform(., "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs") %>%
+  st_transform(., proj_ea) %>%
   subset(., NAME != "Alaska" &
            NAME != "Hawaii" &
            NAME != "Puerto Rico") %>%
@@ -49,54 +51,58 @@ plot(ecoreg[5])
 # Data lists --------------------------------------------------------------
 
 # NetCDF data lists
-def_dl <- list.files(paste0(dirc, "/climate/raw/historical_gridmet/def"), pattern = "nc",
+def_dl <- list.files(paste0(dirc, dir_raw, "/def"), pattern = "nc",
                       recursive = TRUE, full.names = TRUE)
-ffwi_dl <- list.files(paste0(dirc, "/climate/raw/historical_gridmet/ffwi"), pattern = "nc",
+ffwi_dl <- list.files(paste0(dirc, dir_raw, "/ffwi"), pattern = "nc",
                        recursive = TRUE, full.names = TRUE)
-fm100_dl <- list.files(paste0(dirc, "/climate/raw/historical_gridmet/fm100"), pattern = "nc",
+fm100_dl <- list.files(paste0(dirc, dir_raw, "/fm100"), pattern = "nc",
                       recursive = TRUE, full.names = TRUE)
-maxtmp_dl <- list.files(paste0(dirc, "/climate/raw/historical_gridmet/maxtmp"), pattern = "nc",
+maxtmp_dl <- list.files(paste0(dirc, dir_raw, "/maxtmp"), pattern = "nc",
                       recursive = TRUE, full.names = TRUE)
-pdsi_dl <- list.files(paste0(dirc, "/climate/raw/historical_gridmet/pdsi"), pattern = "nc",
+pdsi_dl <- list.files(paste0(dirc, dir_raw, "/pdsi"), pattern = "nc",
                       recursive = TRUE, full.names = TRUE)
-pet_dl <- list.files(paste0(dirc, "/climate/raw/historical_gridmet/pet"), pattern = "nc",
+pet_dl <- list.files(paste0(dirc, dir_raw, "/pet"), pattern = "nc",
                       recursive = TRUE, full.names = TRUE)
-precip_dl <- list.files(paste0(dirc, "/climate/raw/historical_gridmet/precip"), pattern = "nc",
+precip_dl <- list.files(paste0(dirc, dir_raw, "/precip"), pattern = "nc",
                       recursive = TRUE, full.names = TRUE)
-vpd_dl <- list.files(paste0(dirc, "/climate/raw/historical_gridmet/vpd"), pattern = "nc",
+vpd_dl <- list.files(paste0(dirc, dir_raw, "/vpd"), pattern = "nc",
                         recursive = TRUE, full.names = TRUE)
-windsp_dl <- list.files(paste0(dirc, "/climate/raw/historical_gridmet/windsp"), pattern = "nc",
+windsp_dl <- list.files(paste0(dirc, dir_raw, "/windsp"), pattern = "nc",
                         recursive = TRUE, full.names = TRUE)
 tmp_dl <- list.files(paste0(dirc, "/climate/raw/historical_gridmet/tmp"), pattern = "nc",
                         recursive = TRUE, full.names = TRUE)
 # Functions ---------------------------------------------------------------
-write_out <- function(file, var, outfolder) {
+write_out <- function(y, var, outfolder) {
   dir.create(paste0(dirc, dir_proc, var), showWarnings = FALSE)
   dir.create(paste0(dirc, dir_proc, var, "/", outfolder), showWarnings = FALSE)
   out <- paste0(dirc, dir_proc, var,  "/", outfolder, "/")
-  writeRaster(file, filename = paste0(out, names(file)),
+  writeRaster(y, filename = paste0(out, names(y)),
               format = "GTiff", bylayer=TRUE, overwrite = TRUE)
-  return(paste("File", names(file), "written"))
+  return(paste("File", names(y), "written"))
 }
 
-netcdf_nc_import <- function(file, mask) {
-  r <- raster(ncols = 585, nrows = 1386, res = 0.04166667)
-  
-  file_split <- file %>%
+netcdf_nc_import <- function(y, mask) {
+  ### A function to import NetCDF and create a raster brick of monthly climate data
+  # input: 
+  #  - y : a data list of all NetCDF ys
+  #  - mask : CONUS shapefile projected in WGS84
+  # output:
+  #  - rbrck: a raster brick of all processed months
+  y_split <- y %>%
     basename %>%
     strsplit(split = "_") %>%
     unlist
-  var <- file_split[1]
-  year <- substr(file_split[2], start = 1, stop = 4)
-  endyear <- ifelse(nchar(file_split[2]) > 7,
-                    substr(file_split[2], start = 5, stop = 8), year)
+  var <- y_split[1]
+  year <- substr(y_split[2], start = 1, stop = 4)
+  endyear <- ifelse(nchar(y_split[2]) > 7,
+                    substr(y_split[2], start = 5, stop = 8), year)
   
   start_date <- as.Date(paste(year, "01", "01", sep = "-"))
   end_date <- as.Date(paste(ifelse(year == endyear, year, endyear), "12", "31", sep = "-"))
   date_seq <- seq(start_date, end_date, by = "1 day") %m+% years(1)
   monthly_seq <- seq(start_date, end_date, by = "1 month")
   
-  nc <- nc_open(file)
+  nc <- nc_open(y)
   nc_att <- attributes(nc$var)$names
   ncvar <- ncvar_get(nc, nc_att)
   tvar <- aperm(ncvar, c(3,2,1))
@@ -114,47 +120,20 @@ netcdf_nc_import <- function(file, mask) {
   return(rbrck)
 }      
 
-raster_nc_import <- function(file, mask, fun){
-  file_split <- file %>%
-    basename %>%
-    strsplit(split = "_") %>%
-    unlist
-  var <- file_split[1]
-  year <- substr(file_split[2], start = 1, stop = 4)
-  
-  start_date <- as.Date(paste(year, "01", "01", sep = "-"))
-  end_date <- as.Date(paste(year, "12", "31", sep = "-"))
-  date_seq <- seq(start_date, end_date, by = "1 day") %m+% years(1)
-  monthly_seq <- seq(start_date, end_date, by = "1 month")
-  
-  proj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
-  rbrck <- brick(file, crs= proj)
-  res <- stackApply(rbrck, month_seq, fun = fun)
-  res <- flip(t(res), direction = "x")
-  names(res) <- paste(var, year, unique(month(monthly_seq)), 
-                      unique(month(monthly_seq, label = TRUE)),
-                      sep = "_")
-  res <- mask(res, mask)
-  return(res)
-}
-
-
-raster_nc_import_ndap <- function(file, mask, fun, percentile){
-### A function to compute the number of days per month (typically sum) that exceeds a percentile threshold
-  #   break out fires into small, med, large
+raster_nc_import <- function(y, mask, fun.dm){
+  ### A function to import NetCDF and create monthly means from daily climate data
   # input: 
-  #  - file : a data list of all NetCDF files
+  #  - y : a data list of all NetCDF ys
   #  - mask : CONUS shapefile projected in WGS84
-  #  - fun : The type of aggregation to be done on the days that exceeds the threshold
-  #  - percentile : the percentile threshold, numeric
+  #  - fun.dm : The type of aggregation to be done on the days that exceeds the threshold
   # output:
-  #  - res: a raster brick of all processed months
-  file_split <- file %>%
+  #  - rbrck: a raster brick of all processed months
+  y_split <- y %>%
     basename %>%
     strsplit(split = "_") %>%
     unlist
-  var <- file_split[1]
-  year <- substr(file_split[2], start = 1, stop = 4)
+  var <- y_split[1]
+  year <- substr(y_split[2], start = 1, stop = 4)
   
   start_date <- as.Date(paste(year, "01", "01", sep = "-"))
   end_date <- as.Date(paste(year, "12", "31", sep = "-"))
@@ -162,108 +141,110 @@ raster_nc_import_ndap <- function(file, mask, fun, percentile){
   monthly_seq <- seq(start_date, end_date, by = "1 month")
   
   proj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
-  rbrck <- brick(file, crs= proj)
-  q <- calc(rbrck, fun = function(x){x > quantile(x, probs = percentile, na.rm =TRUE)})
-  res <- stackApply(q, month_seq, fun = fun)  # remove unneeded object for memory conservation
-  res <- flip(t(res), direction = "x")
-  names(res) <- paste(var, year, unique(month(monthly_seq)), 
-                      unique(month(monthly_seq, label = TRUE)),
-                      sep = "_")
-  res <- mask(res, mask)
-  return(res)
+  rbrck <- brick(y, crs= proj)
+  rbrck <- stackApply(rbrck, month(date_seq), fun = fun.dm)
+  rbrck <- flip(t(rbrck), direction = "x")
+  names(rbrck) <- paste(var, (year(monthly_seq)), 
+                        ifelse(nchar((month(monthly_seq))) == 1, 
+                               paste0("0", (month(monthly_seq))), 
+                               (month(monthly_seq))),
+                        (month(monthly_seq, label = TRUE)),
+                        sep = "_")
+  rbrck <- mask(rbrck, mask)
+  return(rbrck)
 }
 
-UseCores <- detectCores() -1
-cl       <- makeCluster(UseCores)
-
-# This parallelized code is equivilant to the lapply
-pr <- foreach(i = 1:length(tmp_dl)) %dopar% {
-  raster_nc_import(tmp_dl[i], as(usa_shp, "Spatial"), sum)}
-pr <- do.call(stack, pr)
-out <- write_out(pr, "tmp", "tmp_mean")
-
-
-
-
-
-
-
-
-raster_nc_import_as <- function(file, mask, fun.dm){
+raster_as <- function(y, fun.a){
   ### A function to computes the metric of previous 12 months. For instance, this could be sum or mean 
   #   precipitation over the previous 12 months (e.g., fuel accumulation proxy)
   # input: 
-  #  - file : a data list of all NetCDF files
-  #  - mask : CONUS shapefile projected in WGS84
-  #  - fun.dm : The type of aggregation to be done to aggregate daily to monthly
+  #  - x : a data list of all NetCDF files
   #  - fun.a : The type of aggregation to be done to aggregate monthly to previous 1 year
   # output:
   #  - lagged_vals: a raster brick of all processed months
-  n_layers <- length(names(file))
+  
+  n_layers <- length(names(y))
   lag <- 12
   lagged_vals <- list()
   counter <- 1
   pb <- txtProgressBar(max = n_layers, style = 3)
   for (i in 1:n_layers) {
     if (i > lag) {
-      lagged_vals[[counter]] <- sum(subset(r, (i - lag):(i - 1)))
+      lagged_vals[[counter]] <- fun.a(subset(y, (i - lag):(i - 1)))
       names(lagged_vals)[counter] <- paste("timestep", i, "lag", lag, sep = "_")
       counter <- counter + 1
     }
     setTxtProgressBar(pb, i)
   }
   
+  # convert the list of lagged summaries to a raster stack
   lagged_vals <- stack(lagged_vals)
-  names(lagged_vals) <- paste(var, year, unique(month(monthly_seq)), 
-                              unique(month(monthly_seq, label = TRUE)),
-                              sep = "_")
-  lagged_vals <- mask(lagged_vals, mask)
-  return(lagged_vals)
 }
 
-# This parallelized code is equivilant to the lapply
-#Most likely we will have to import rasters at a monthly aggregate to run this..
-pr2 <- lapply(tmp_dl, raster_nc_import_as, mask = as(usa_shp, "Spatial"), sum)
-
-pr2 <- do.call(stack, pr2)
-plot(pr[[6:9]], bty="n", box=FALSE)
-
-out <- write_out(pr, "tmp", "tmp_mean")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-pr <- foreach(i = 1:length(pdsi_dl)) %dopar% {
-  netcdf_nc_import(pdsi_dl[i], as(usa_shp, "Spatial"))}
-pr <- lapply(pdsi_dl, netcdf_nc_import, mask = as(usa_shp, "Spatial"))
-pr <- do.call(stack, pr)
-out <- write_out(pr, "pr", "tmp_mean")
-
-plot(pr[[6:9]], bty="n", box=FALSE)
-
+raster_nc_import_ndap <- function(y, mask, fun.a, percentile){
+### A function to compute the number of days per month (typically sum) that exceeds a percentile threshold
+  #   break out fires into small, med, large
+  # input: 
+  #  - y : a data list of all NetCDF ys
+  #  - mask : CONUS shapefile projected in WGS84
+  #  - fun.a : The type of aggregation to be done on the days that exceeds the threshold
+  #  - percentile : the percentile threshold, numeric
+  # output:
+  #  - res: a raster brick of all processed months
+  y_split <- y %>%
+    basename %>%
+    strsplit(split = "_") %>%
+    unlist
+  var <- y_split[1]
+  year <- substr(y_split[2], start = 1, stop = 4)
+  
+  start_date <- as.Date(paste(year, "01", "01", sep = "-"))
+  end_date <- as.Date(paste(year, "12", "31", sep = "-"))
+  date_seq <- seq(start_date, end_date, by = "1 day") %m+% years(1)
+  monthly_seq <- seq(start_date, end_date, by = "1 month")
+  
+  proj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+  rbrck <- brick(y, crs= proj)
+  q <- calc(rbrck, fun = function(x){x > quantile(x, probs = percentile, na.rm =TRUE)})
+  res <- stackApply(q, month(date_seq), fun = fun.a)  # remove unneeded object for memory conservation
+  res <- flip(t(res), direction = "x")
+  names(res) <- paste(var, (year(monthly_seq)), 
+                      ifelse(nchar((month(monthly_seq))) == 1, 
+                             paste0("0", (month(monthly_seq))), 
+                             (month(monthly_seq))),
+                      (month(monthly_seq, label = TRUE)),
+                      sep = "_")
+  res <- mask(res, mask)
+  return(res)
+}
 
 # Import NetCDF, process, Export as GTiff ---------------------------------
-UseCores <- detectCores() -1
 cl       <- makeCluster(UseCores)
 
-ffwi_95 <- foreach(i = 1:length(ffwi_dl)) %dopar% {
-  netcdf_to_tif_numabove95(ffwi_dl[i], usa_shp, "NumDaysAbove95th")}
+# These data cannot be imported using the raster package.
+# These data are already compiled monthly means from 1979-2016 in one NetCDF file
+pdsi <- foreach(i = 1:length(pdsi_dl)) %dopar% {
+  netcdf_nc_import(pdsi_dl[i], as(mask, "Spatial"))}
+pdsi <- do.call(stack, pdsi)
+pdsi <- write_out(pdsi, "pdsi", "monthly_mean")
 
-ffwi_mean <-   foreach(i = 1:length(ffwi_dl)) %dopar% {
-  netcdf_day_to_tif_month(ffwi_dl[i], usa_shp, "MonthlyMean")}
+aet <- foreach(i = 1:length(aet_dl)) %dopar% {
+  netcdf_nc_import(aet_dl[i], as(mask, "Spatial"))}
+aet <- do.call(stack, aet)
+aet <- write_out(aet, "aet", "monthly_mean")
 
-def_mean <- foreach(i = 1:length(ffwi_dl)) %dopar% {
-  netcdf_month_to_tif_month(def_dl[i], usa_shp, "MonthlyMean")}
+def <- foreach(i = 1:length(def_dl)) %dopar% {
+  netcdf_nc_import(def_dl[i], as(mask, "Spatial"))}
+def <- do.call(stack, def)
+def <- write_out(def, "def", "monthly_mean")
+
+vpd <- foreach(i = 1:length(vpd_dl)) %dopar% {
+  netcdf_nc_import(vpd_dl[i], as(mask, "Spatial"))}
+vpd <- do.call(stack, vpd)
+vpd <- write_out(vpd, "vpd", "monthly_mean")
+
+# These data can be imported using the raster package.
+# These data are daily data from 1979-2016 in one NetCDF file per year
 
 stopCluster(cl)
 
