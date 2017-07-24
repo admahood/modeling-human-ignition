@@ -154,7 +154,7 @@ raster_nc_import <- function(y, mask, fun.dm){
   return(rbrck)
 }
 
-raster_as <- function(y, fun.a){
+raster_as <- function(y, fun = "mean"){
   ### A function to computes the metric of previous 12 months. For instance, this could be sum or mean 
   #   precipitation over the previous 12 months (e.g., fuel accumulation proxy)
   # input: 
@@ -170,7 +170,14 @@ raster_as <- function(y, fun.a){
   pb <- txtProgressBar(max = n_layers, style = 3)
   for (i in 1:n_layers) {
     if (i > lag) {
-      lagged_vals[[counter]] <- fun.a(subset(y, (i - lag):(i - 1)))
+      rater_subset <- subset(y, (i - lag):(i - 1))
+      if(fun == "mean") {
+        lagged_vals[[counter]] <- mean(rater_subset)
+      } else if (fun == "sum") {
+        lagged_vals[[counter]] <- sum(rater_subset)
+      } else {
+        stop("Only sum() and mean() are supported")
+      }
       names(lagged_vals)[counter] <- paste("timestep", i, "lag", lag, sep = "_")
       counter <- counter + 1
     }
