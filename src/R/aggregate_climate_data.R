@@ -57,15 +57,14 @@ daily_to_monthly <- function(file, mask){
   month_seq <- month(date_seq)
   
   # Check if directory exists for all variable aggregate outputs, if not then create
-  var_dir <- list(file.path("../data", "historical"),
-                  file.path("../data", "historical", "processed"),
-                  file.path("../data", "historical", "processed", var),
-                  file.path("../data", "historical", "processed", var, "monthly_mean"), 
-                  file.path("../data", "historical", "processed", var, "monthly_std"),
-                  file.path("../data", "historical", "processed", var, "mean_days_90thpct"),
-                  file.path("../data", "historical", "processed", var, "mean_days_95thpct"),
-                  file.path("../data", "historical", "processed", var, "sum_days_90thpct"),
-                  file.path("../data", "historical", "processed", var, "sum_days_95thpct"))
+  var_dir <- list(file.path("../data",  "processed"),
+                  file.path("../data",  "processed", var),
+                  file.path("../data",  "processed", var, "monthly_mean"), 
+                  file.path("../data",  "processed", var, "monthly_std"),
+                  file.path("../data",  "processed", var, "mean_days_90thpct"),
+                  file.path("../data",  "processed", var, "mean_days_95thpct"),
+                  file.path("../data",  "processed", var, "sum_days_90thpct"),
+                  file.path("../data",  "processed", var, "sum_days_95thpct"))
   
   lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
   
@@ -79,7 +78,7 @@ daily_to_monthly <- function(file, mask){
     p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     projection(corrected_res_mean) <- CRS(p4string)
     masked_res_mean <- mask(corrected_res_mean, mask)
-    writeRaster(masked_res_mean, filename = file.path("../data", "historical", "processed", var, "monthly_mean", out_name),
+    writeRaster(masked_res_mean, filename = file.path("../data",  "processed", var, "monthly_mean", out_name),
                 format = "GTiff") }
 
   # Standard deviation
@@ -92,7 +91,7 @@ daily_to_monthly <- function(file, mask){
     p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     projection(corrected_res_mean) <- CRS(p4string)
     masked_res_mean <- mask(corrected_res_mean, mask)
-    writeRaster(masked_res_mean, filename = file.path("../data", "historical", "processed", var, "monthly_std", out_name),
+    writeRaster(masked_res_mean, filename = file.path("../data",  "processed", var, "monthly_std", out_name),
                 format = "GTiff") }
 
   # Mean number of days above 90th percentile
@@ -106,7 +105,7 @@ daily_to_monthly <- function(file, mask){
     p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     projection(corrected_res_mean) <- CRS(p4string)
     masked_res_mean <- mask(corrected_res_mean, mask)
-    writeRaster(masked_res_mean, filename = file.path("../data", "historical", "processed", var, "mean_days_90thpct", out_name),
+    writeRaster(masked_res_mean, filename = file.path("../data",  "processed", var, "mean_days_90thpct", out_name),
                 format = "GTiff") }
   
   # Mean number of days above 95th percentile
@@ -120,7 +119,7 @@ daily_to_monthly <- function(file, mask){
     p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     projection(corrected_res_mean) <- CRS(p4string)
     masked_res_mean <- mask(corrected_res_mean, mask)
-    writeRaster(masked_res_mean, filename = file.path("data", "historical", "processed", var, "mean_days_95thpct", out_name),
+    writeRaster(masked_res_mean, filename = file.path("data",  "processed", var, "mean_days_95thpct", out_name),
                 format = "GTiff") }
   
   # Sum number of days above 90th percentile
@@ -134,7 +133,7 @@ daily_to_monthly <- function(file, mask){
     p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     projection(corrected_res_mean) <- CRS(p4string)
     masked_res_mean <- mask(corrected_res_mean, mask)
-    writeRaster(masked_res_mean, filename = file.path("data", "historical", "processed", var, "sum_days_90thpct", out_name),
+    writeRaster(masked_res_mean, filename = file.path("data",  "processed", var, "sum_days_90thpct", out_name),
                 format = "GTiff") }
   
   # Sum number of days above 95th percentile
@@ -148,7 +147,7 @@ daily_to_monthly <- function(file, mask){
     p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     projection(corrected_res_mean) <- CRS(p4string)
     masked_res_mean <- mask(corrected_res_mean, mask)
-    writeRaster(masked_res_mean, filename = file.path("data", "historical", "processed", var, "sum_days_95thpct", out_name),
+    writeRaster(masked_res_mean, filename = file.path("data",  "processed", var, "sum_days_95thpct", out_name),
                 format = "GTiff") }
 }
 
