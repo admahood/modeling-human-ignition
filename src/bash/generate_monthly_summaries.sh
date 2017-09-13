@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # download the data from remote server
-source metdata_wget.sh
+source src/bash/metdata_wget.sh
 
 # execute R script to produce monthly GeoTIFFs
-Rscript --vanilla R/aggregate-climate-data.R
+Rscript --vanilla src/R/aggregate-climate-data.R
 
 # push monthly GeoTIFFS to AWS S3
 aws s3 cp ../data/processed/pet s3://earthlab-natem/data/climate/historical/pet --recursive

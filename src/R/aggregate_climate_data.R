@@ -4,7 +4,8 @@ library(raster)
 library(lubridate)
 library(rgdal)
 library(tidyverse)
-library(snowfall)
+library(doParallel)
+library(foreach) 
 
 # Creat directories for state data
 raw_prefix <- file.path("../data", "raw")
@@ -16,7 +17,7 @@ var_dir <- list(raw_prefix,
 
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
-us_shp <- file.path("data", "raw", "cb_2016_us_state_20m.shp")
+us_shp <- file.path("../data", "raw", "cb_2016_us_state_20m.shp")
 if (!file.exists(us_shp)) {
   loc <- "https://www2.census.gov/geo/tiger/GENZ2016/shp/cb_2016_us_state_20m.zip"
   dest <- paste0(us_prefix, ".zip")
@@ -39,7 +40,6 @@ daily_to_monthly <- function(file, mask){
   require(raster)
   require(rgdal)
   require(lubridate)
-  
   file_split <- file %>%
     basename %>%
     strsplit(split = "_") %>%
@@ -69,7 +69,7 @@ daily_to_monthly <- function(file, mask){
   lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
   
   # Mean
-  if(!file.exists(paste0("../data/", "processed/", var, "/monthly_mean/", out_name))){
+  if(!file.exists(file.path("../data",  "processed", var, "monthly_mean", out_name))){
     monthly_mean <- stackApply(raster, month_seq, fun = mean)
     corrected_res_mean <- flip(t(monthly_mean), direction = "x")
     names(corrected_res_mean) <- paste(var, year,
@@ -82,7 +82,7 @@ daily_to_monthly <- function(file, mask){
                 format = "GTiff") }
 
   # Standard deviation
-  if(!file.exists(paste0("../data/", "processed/", var, "/monthly_std/", out_name))){
+  if(!file.exists(file.path("../data",  "processed", var, "monthly_std", out_name))){
     monthly_std <- stackApply(raster, month_seq, fun = sd)
     corrected_res_mean <- flip(t(monthly_std), direction = "x")
     names(corrected_res_mean) <- paste(var, year,
@@ -95,7 +95,7 @@ daily_to_monthly <- function(file, mask){
                 format = "GTiff") }
 
   # Mean number of days above 90th percentile
-  if(!file.exists(paste0("../data/", "processed/", var, "/mean_days_90thpct/", out_name))){
+  if(!file.exists(file.path("../data",  "processed", var, "mean_days_90thpct", out_name))){
     res <- calc(raster, fun = function(x){x > quantile(x, probs = 90, na.rm =TRUE)})
     mean_days_90thpct <- stackApply(res, month_seq, fun = mean)
     corrected_res_mean <- flip(t(mean_days_90thpct), direction = "x")
@@ -109,7 +109,7 @@ daily_to_monthly <- function(file, mask){
                 format = "GTiff") }
   
   # Mean number of days above 95th percentile
-  if(!file.exists(paste0("../data/", "processed/", var, "/mean_days_95thpct/", out_name))){
+  if(!file.exists(file.path("../data",  "processed", var, "mean_days_95thpct", out_name))){
     res <- calc(raster, fun = function(x){x > quantile(x, probs = 95, na.rm =TRUE)})
     mean_days_95thpct <- stackApply(res, month_seq, fun = mean)
     corrected_res_mean <- flip(t(mean_days_95thpct), direction = "x")
@@ -119,11 +119,11 @@ daily_to_monthly <- function(file, mask){
     p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     projection(corrected_res_mean) <- CRS(p4string)
     masked_res_mean <- mask(corrected_res_mean, mask)
-    writeRaster(masked_res_mean, filename = file.path("data",  "processed", var, "mean_days_95thpct", out_name),
+    writeRaster(masked_res_mean, filename = file.path("../data",  "processed", var, "mean_days_95thpct", out_name),
                 format = "GTiff") }
   
   # Sum number of days above 90th percentile
-  if(!file.exists(paste0("../data/", "processed/", var, "/sum_days_90thpct/", out_name))){
+  if(!file.exists(file.path("../data",  "processed", var, "sum_days_90thpct", out_name))){
     res <- calc(raster, fun = function(x){x > quantile(x, probs = 90, na.rm =TRUE)})
     sum_days_90thpct <- stackApply(res, month_seq, fun = mean)
     corrected_res_mean <- flip(t(sum_days_90thpct), direction = "x")
@@ -133,11 +133,11 @@ daily_to_monthly <- function(file, mask){
     p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     projection(corrected_res_mean) <- CRS(p4string)
     masked_res_mean <- mask(corrected_res_mean, mask)
-    writeRaster(masked_res_mean, filename = file.path("data",  "processed", var, "sum_days_90thpct", out_name),
+    writeRaster(masked_res_mean, filename = file.path("../data",  "processed", var, "sum_days_90thpct", out_name),
                 format = "GTiff") }
   
   # Sum number of days above 95th percentile
-  if(!file.exists(paste0("../data/", "processed/", var, "/sum_days_95thpct/", out_name))){
+  if(!file.exists(file.path("../data",  "processed", var, "sum_days_95thpct", out_name))){
     res <- calc(raster, fun = function(x){x > quantile(x, probs = 95, na.rm =TRUE)})
     sum_days_95thpct <- stackApply(res, month_seq, fun = sum)
     corrected_res_mean <- flip(t(sum_days_95thpct), direction = "x")
@@ -147,26 +147,19 @@ daily_to_monthly <- function(file, mask){
     p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     projection(corrected_res_mean) <- CRS(p4string)
     masked_res_mean <- mask(corrected_res_mean, mask)
-    writeRaster(masked_res_mean, filename = file.path("data",  "processed", var, "sum_days_95thpct", out_name),
+    writeRaster(masked_res_mean, filename = file.path("../data",  "processed", var, "sum_days_95thpct", out_name),
                 format = "GTiff") }
 }
 
-daily_files <- list.files(paste0(".."), pattern = "nc",
-                          recursive = TRUE, full.names = TRUE)
-
+daily_files <- list.files(".", pattern = "nc", full.names = TRUE)
 
 # Run the daily_to_monthly function in parallel
 
-sfInit(parallel = TRUE, cpus = parallel::detectCores())
-sfLibrary(snowfall)
+UseCores <- detectCores()
+cl <- makeCluster(UseCores)
+registerDoParallel(cl)
 
-sfExportAll()
-#sfExport(list = c("daily_to_monthly", "usa_shp", "daily_files"))
+foreach(i = 1:length(daily_files)) %dopar% {
+  daily_to_monthly(daily_files[i], mask = usa_shp)}
 
-sfLapply(daily_files,
-        daily_to_monthly,
-        mask = usa_shp)
-sfStop()
-
-
-
+stopCluster(cl)
