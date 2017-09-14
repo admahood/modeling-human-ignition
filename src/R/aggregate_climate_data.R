@@ -6,6 +6,7 @@ library(rgdal)
 library(tidyverse)
 library(doParallel)
 library(foreach) 
+library(assertthat)
 
 # Creat directories for state data
 raw_prefix <- file.path("../data", "raw")
@@ -17,14 +18,13 @@ var_dir <- list(raw_prefix,
 
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
-us_shp <- file.path("../data", "raw", "cb_2016_us_state_20m.shp")
+us_shp <- file.path("../data", "raw", "cb_2016_us_state_20m", "cb_2016_us_state_20m.shp")
 if (!file.exists(us_shp)) {
   loc <- "https://www2.census.gov/geo/tiger/GENZ2016/shp/cb_2016_us_state_20m.zip"
   dest <- paste0(us_prefix, ".zip")
   download.file(loc, dest)
   unzip(dest, exdir = us_prefix)
   unlink(dest)
-  assert_that(file.exists(us_shp))
 }
 
 
@@ -96,7 +96,7 @@ daily_to_monthly <- function(file, mask){
 
   # Mean number of days above 90th percentile
   if(!file.exists(file.path("../data",  "processed", var, "mean_days_90thpct", out_name))){
-    res <- calc(raster, fun = function(x){x > quantile(x, probs = 90, na.rm =TRUE)})
+    res <- calc(raster, fun = function(x){x > quantile(x, probs = 0.90, na.rm =TRUE)})
     mean_days_90thpct <- stackApply(res, month_seq, fun = mean)
     corrected_res_mean <- flip(t(mean_days_90thpct), direction = "x")
     names(corrected_res_mean) <- paste(var, year,
@@ -110,7 +110,7 @@ daily_to_monthly <- function(file, mask){
   
   # Mean number of days above 95th percentile
   if(!file.exists(file.path("../data",  "processed", var, "mean_days_95thpct", out_name))){
-    res <- calc(raster, fun = function(x){x > quantile(x, probs = 95, na.rm =TRUE)})
+    res <- calc(raster, fun = function(x){x > quantile(x, probs = 0.95, na.rm =TRUE)})
     mean_days_95thpct <- stackApply(res, month_seq, fun = mean)
     corrected_res_mean <- flip(t(mean_days_95thpct), direction = "x")
     names(corrected_res_mean) <- paste(var, year,
@@ -124,7 +124,7 @@ daily_to_monthly <- function(file, mask){
   
   # Sum number of days above 90th percentile
   if(!file.exists(file.path("../data",  "processed", var, "sum_days_90thpct", out_name))){
-    res <- calc(raster, fun = function(x){x > quantile(x, probs = 90, na.rm =TRUE)})
+    res <- calc(raster, fun = function(x){x > quantile(x, probs = 0.90, na.rm =TRUE)})
     sum_days_90thpct <- stackApply(res, month_seq, fun = mean)
     corrected_res_mean <- flip(t(sum_days_90thpct), direction = "x")
     names(corrected_res_mean) <- paste(var, year,
@@ -138,7 +138,7 @@ daily_to_monthly <- function(file, mask){
   
   # Sum number of days above 95th percentile
   if(!file.exists(file.path("../data",  "processed", var, "sum_days_95thpct", out_name))){
-    res <- calc(raster, fun = function(x){x > quantile(x, probs = 95, na.rm =TRUE)})
+    res <- calc(raster, fun = function(x){x > quantile(x, probs = 0.95, na.rm =TRUE)})
     sum_days_95thpct <- stackApply(res, month_seq, fun = sum)
     corrected_res_mean <- flip(t(sum_days_95thpct), direction = "x")
     names(corrected_res_mean) <- paste(var, year,
