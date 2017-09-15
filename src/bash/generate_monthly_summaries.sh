@@ -7,4 +7,4 @@ source src/bash/metdata_wget.sh
 Rscript --vanilla ../HumanIgnProb/src/R/aggregate_climate_data.R
 
 # push monthly GeoTIFFS to AWS S3
-aws s3 sync ../data/processed/ s3://earthlab-natem/data/climate/historical/ --recursive --exclude '*' --include 'file.txt'
+aws s3 sync ../data/processed/ s3://earthlab-natem/data/climate/historical/
