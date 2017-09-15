@@ -2,6 +2,7 @@ library(raster)
 library(tidyverse)
 library(sf)
 
+source("src/R/get_data.R")
 # Prepare all spatial data for analysis
 raw_prefix <- file.path("data", "raw")
 
@@ -19,21 +20,22 @@ eco_reg <- st_read(dsn = file.path("data/raw/us_eco_l3/"),
 
 tl <- st_read(dsn = file.path(raw_prefix, "Electric_Power_Transmission_Lines", 'Electric_Power_Transmission_Lines.shp')) %>%
   st_transform(p4string) %>%
-  st_intersection(., usa_shp) %>%
-  mutate(bool_tl = 1)
+  st_intersection(., usa_shp)
 
 rails <- st_read(dsn = file.path(raw_prefix, "tl_2016_us_rails", 'tl_2016_us_rails.shp')) %>%
   st_transform(p4string) %>%
-  st_intersection(., usa_shp)
+  st_intersection(., usa_shp) %>%
+  mutate(bool_rail = 1)
 
 rds <- st_read(dsn = file.path(raw_prefix, "tlgdb_2015_a_us_roads", "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads') %>%
   st_transform(p4string) %>%
   st_intersection(., usa_shp) %>%
-  mutate(rd_grp = 1)
+  mutate(bool_rds = 1)
 
-pd <- st_read(dsn = file.path(raw_prefix, "county_pop", 'cofips_upp.shp')) %>%
-  st_transform(p4string) %>%
-  st_intersection(., usa_shp)
+# pd <- st_read(dsn = file.path(raw_prefix, "county_pop", 'cofips_upp.shp')) %>%
+#   st_make_valid() %>%
+#   st_transform(p4string) %>%
+#   st_intersection(., usa_shp)
 
 # Read in raster data
 hd <- raster(file.path(raw_prefix, "housing_den", 'hd_iclus_bc.nc')) %>%
@@ -50,11 +52,6 @@ projection(elevation) <- CRS(p4string)
 state <- rasterize(as(usa_shp, "Spatial"), elevation)
 ecoregion <- rasterize(as(eco_reg, "Spatial"), elevation)
 transmission_lines <- rasterize(as(tl, "Spatial"), elevation, "bool_tl")
-railroads <- rasterize(as(rails, "Spatial"), elevation)
-
-
-roads <- rasterize(as(rds, "Spatial"), elevation, "rd_grp")
-plot(state)
-plot(ecoregion)
-
-plot(transmission_lines)
+railroads <- rasterize(as(rails, "Spatial"), elevation, "bool_rail")
+roads <- rasterize(as(rds, "Spatial"), elevation, "rds")
+pop_den <- rasterize(as(pd, "Spatial"), elevation)
