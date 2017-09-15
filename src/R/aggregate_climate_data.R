@@ -36,7 +36,7 @@ usa_shp <- spTransform(usa_shp,
 
 
 daily_to_monthly <- function(file, mask){
-  require(tidyverse)
+    require(tidyverse)
   require(raster)
   require(rgdal)
   require(lubridate)
@@ -163,3 +163,5 @@ foreach(i = 1:length(daily_files)) %dopar% {
   daily_to_monthly(daily_files[i], mask = usa_shp)}
 
 stopCluster(cl)
+
+t<- raster("../data/processed/fm1000/mean_days_90thpct/monthly_fm1000_1979.tif")
