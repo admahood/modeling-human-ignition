@@ -7,14 +7,14 @@ library(purrr)
 raw_prefix <- file.path("data", "raw")
 us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
 ecoregion_prefix <- file.path(raw_prefix, "us_eco_l3")
-roads_prefix <- file.path(raw_prefix, "tl_2016_us_primaryroads")
 fpa_prefix <- file.path(raw_prefix, "fpa-fod")
+roads_prefix <- file.path(raw_prefix, "tlgdb_2015_a_us_roads")
 rails_prefix <- file.path(raw_prefix, "tl_2016_us_rails")
-lulc_prefix <- file.path(raw_prefix, "tl_2016_us_rails")
-nlcd_prefix <- file.path(raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10")
-hd_prefix <- file.path(raw_prefix, 'us_pbg00')
-iclus_shp <- file.path(raw_prefix, 'hd_iclus_bc')
-elev_shp <- file.path(hd_prefix, 'us_pbg00_2007.nc')
+nlcd_prefix <- file.path(raw_prefix, "nlcd_2011")
+pd_prefix <- file.path(raw_prefix, "county_pop")
+iclus_prefix <- file.path(raw_prefix, 'housing_den')
+elev_prefix <- file.path(raw_prefix, 'metdata_elevationdata')
+tl_prefix <- file.path(raw_prefix, 'Electric_Power_Transmission_Lines')
 
 # Check if directory exists for all variable aggregate outputs, if not then create
 var_dir <- list(raw_prefix,
@@ -23,9 +23,11 @@ var_dir <- list(raw_prefix,
                 roads_prefix,
                 fpa_prefix,
                 rails_prefix,
-                lulc_prefix,
+                pd_prefix,
+                iclus_prefix,
                 nlcd_prefix,
-                hd_prefix)
+                elev_prefix,
+                tl_prefix)
 
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
@@ -67,18 +69,6 @@ if (!file.exists(fpa_gdb)) {
   assert_that(file.exists(fpa_gdb))
 }
 
-#Download the roads
-
-roads_shp <- file.path(roads_prefix, 'tl_2016_us_primaryroads.shp')
-if (!file.exists(roads_shp)) {
-  loc <- "ftp://ftp2.census.gov/geo/tiger/TIGER2016/PRIMARYROADS/tl_2016_us_primaryroads.zip"
-  dest <- paste0(roads_prefix, ".zip")
-  download.file(loc, dest)
-  unzip(dest, exdir = roads_prefix)
-  unlink(dest)
-  assert_that(file.exists(roads_shp))
-}
-
 #Download the railrods
 
 rails_shp <- file.path(rails_prefix, 'tl_2016_us_rails.shp')
@@ -91,50 +81,74 @@ if (!file.exists(rails_shp)) {
   assert_that(file.exists(rails_shp))
 }
 
-#Download the NLCD 2011
+#Download the tramission lines
 
-nlcd_shp <- file.path(nlcd_prefix, 'nlcd_2011_landcover_2011_edition_2014_10_10.tif')
-if (!file.exists(nlcd_shp)) {
-  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2011&FNAME=nlcd_2011_landcover_2011_edition_2014_10_10.zip"
-  dest <- paste0(nlcd_prefix, ".zip")
+tl_shp <- file.path(tl_prefix, 'Electric_Power_Transmission_Lines.shp')
+if (!file.exists(tl_shp)) {
+  loc <- "https://hifld-dhs-gii.opendata.arcgis.com/datasets/75af06441c994aaf8e36208b7cd44014_0.zip"
+  dest <- paste0(tl_prefix, ".zip")
   download.file(loc, dest)
-  unzip(dest, exdir = nlcd_prefix)
+  unzip(dest, exdir = tl_prefix)
   unlink(dest)
-  assert_that(file.exists(nlcd_shp))
+  assert_that(file.exists(tl_shp))
 }
 
-# Download housing density by census block from 1940-2030
+# Download population density by county from 2010-2100
 
-hd_shp <- file.path(hd_prefix, 'us_pbg00_2007.gdb')
-if (!file.exists(hd_shp)) {
-  loc <- "http://silvis.forest.wisc.edu/sites/default/files/maps/pbg00_old/gis/us_pbg00.zip"
-  dest <- paste0(hd_prefix, ".zip")
+pd_shp <- file.path(raw_prefix, "county_pop", 'cofips_upp.shp')
+if (!file.exists(pd_shp)) {
+  loc <- "https://edg.epa.gov/data/Public/ORD/NCEA/county_pop.zip"
+  dest <- paste0(raw_prefix, ".zip")
   download.file(loc, dest)
-  unzip(dest, exdir = hd_prefix)
+  unzip(dest, exdir = raw_prefix)
   unlink(dest)
-  assert_that(file.exists(hd_shp))
+  assert_that(file.exists(pd_shp))
 }
 
 # Download housing density baseline scenario
 
-iclus_shp <- file.path(iclus_prefix, 'hd_iclus_bc.nc')
-if (!file.exists(iclus_shp)) {
+iclus_nc <- file.path(iclus_prefix, 'hd_iclus_bc.nc')
+if (!file.exists(iclus_nc)) {
   loc <- "https://cida.usgs.gov/thredds/fileServer/ICLUS/files/housing_density/hd_iclus_bc.nc"
   dest <- paste0(iclus_prefix, ".zip")
   download.file(loc, dest)
   unzip(dest, exdir = iclus_prefix)
   unlink(dest)
-  assert_that(file.exists(iclus_shp))
+  assert_that(file.exists(iclus_nc))
 }
 
 # Download elevation
 
-elev_shp <- file.path(hd_prefix, 'us_pbg00_2007.nc')
-if (!file.exists(elev_shp)) {
+elev_nc <- file.path(elev_prefix, 'metdata_elevationdata.nc')
+if (!file.exists(elev_nc)) {
   loc <- "http://metdata.northwestknowledge.net/data/metdata_elevationdata.nc"
-  dest <- paste0(hd_prefix, ".zip")
+  dest <- paste0(elev_prefix, "/metdata_elevationdata.nc")
   download.file(loc, dest)
-  unzip(dest, exdir = hd_prefix)
-  unlink(dest)
-  assert_that(file.exists(elev_shp))
+  assert_that(file.exists(elev_nc))
 }
+
+
+#Download the NLCD 2011
+
+nlcd_img <- file.path(nlcd_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10", 'nlcd_2011_landcover_2011_edition_2014_10_10.img')
+if (!file.exists(nlcd_img)) {
+  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2011&FNAME=nlcd_2011_landcover_2011_edition_2014_10_10.zip"
+  dest <- paste0(nlcd_prefix, ".zip")
+  download.file(loc, dest)
+  unzip(dest, exdir = nlcd_prefix)
+  unlink(dest)
+  assert_that(file.exists(nlcd_img))
+}
+
+#Download the roads
+
+roads_shp <- file.path(roads_prefix, "tlgdb_2015_a_us_roads", 'tlgdb_2015_a_us_roads.gdb')
+if (!file.exists(roads_shp)) {
+  loc <- "ftp://ftp2.census.gov/geo/tiger/TGRGDB15/tlgdb_2015_a_us_roads.gdb.zip"
+  dest <- paste0(roads_prefix, ".zip")
+  download.file(loc, dest)
+  unzip(dest, exdir = roads_prefix)
+  unlink(dest)
+  assert_that(file.exists(roads_shp))
+}
+
