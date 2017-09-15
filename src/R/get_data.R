@@ -10,7 +10,7 @@ ecoregion_prefix <- file.path(raw_prefix, "us_eco_l3")
 fpa_prefix <- file.path(raw_prefix, "fpa-fod")
 roads_prefix <- file.path(raw_prefix, "tlgdb_2015_a_us_roads")
 rails_prefix <- file.path(raw_prefix, "tl_2016_us_rails")
-nlcd_prefix <- file.path(raw_prefix, "nlcd_2011")
+nlcd_prefix <- file.path(raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10")
 pd_prefix <- file.path(raw_prefix, "county_pop")
 iclus_prefix <- file.path(raw_prefix, 'housing_den')
 elev_prefix <- file.path(raw_prefix, 'metdata_elevationdata')
@@ -110,9 +110,9 @@ if (!file.exists(pd_shp)) {
 iclus_nc <- file.path(iclus_prefix, 'hd_iclus_bc.nc')
 if (!file.exists(iclus_nc)) {
   loc <- "https://cida.usgs.gov/thredds/fileServer/ICLUS/files/housing_density/hd_iclus_bc.nc"
-  dest <- paste0(iclus_prefix, ".zip")
+  dest <- paste0(raw_prefix, ".zip")
   download.file(loc, dest)
-  unzip(dest, exdir = iclus_prefix)
+  unzip(dest, exdir = raw_prefix)
   unlink(dest)
   assert_that(file.exists(iclus_nc))
 }
@@ -130,12 +130,12 @@ if (!file.exists(elev_nc)) {
 
 #Download the NLCD 2011
 
-nlcd_img <- file.path(nlcd_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10", 'nlcd_2011_landcover_2011_edition_2014_10_10.img')
+nlcd_img <- file.path(nlcd_prefix, 'nlcd_2011_landcover_2011_edition_2014_10_10.img')
 if (!file.exists(nlcd_img)) {
   loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2011&FNAME=nlcd_2011_landcover_2011_edition_2014_10_10.zip"
-  dest <- paste0(nlcd_prefix, ".zip")
+  dest <- paste0(raw_prefix, ".zip")
   download.file(loc, dest)
-  unzip(dest, exdir = nlcd_prefix)
+  unzip(dest, exdir = raw_prefix)
   unlink(dest)
   assert_that(file.exists(nlcd_img))
 }
