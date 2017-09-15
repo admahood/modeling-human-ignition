@@ -9,7 +9,7 @@ us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
 ecoregion_prefix <- file.path(raw_prefix, "us_eco_l3")
 fpa_prefix <- file.path(raw_prefix, "fpa-fod")
 roads_prefix <- file.path(raw_prefix, "tlgdb_2015_a_us_roads")
-rails_prefix <- file.path(raw_prefix, "tl_2016_us_rails")
+rails_prefix <- file.path(raw_prefix, "tlgdb_2015_a_us_rails")
 nlcd_prefix <- file.path(raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10")
 pd_prefix <- file.path(raw_prefix, "county_pop")
 iclus_prefix <- file.path(raw_prefix, 'housing_den')
@@ -71,9 +71,9 @@ if (!file.exists(fpa_gdb)) {
 
 #Download the railrods
 
-rails_shp <- file.path(rails_prefix, 'tl_2016_us_rails.shp')
+rails_shp <- file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb')
 if (!file.exists(rails_shp)) {
-  loc <- "ftp://ftp2.census.gov/geo/tiger/TIGER2016/RAILS/tl_2016_us_rails.zip"
+  loc <- "ftp://ftp2.census.gov/geo/tiger/TGRGDB15/tlgdb_2015_a_us_rails.gdb.zip"
   dest <- paste0(rails_prefix, ".zip")
   download.file(loc, dest)
   unzip(dest, exdir = rails_prefix)
@@ -110,10 +110,8 @@ if (!file.exists(pd_shp)) {
 iclus_nc <- file.path(iclus_prefix, 'hd_iclus_bc.nc')
 if (!file.exists(iclus_nc)) {
   loc <- "https://cida.usgs.gov/thredds/fileServer/ICLUS/files/housing_density/hd_iclus_bc.nc"
-  dest <- paste0(raw_prefix, ".zip")
+  dest <- paste0(iclus_prefix, "/hd_iclus_bc.nc")
   download.file(loc, dest)
-  unzip(dest, exdir = raw_prefix)
-  unlink(dest)
   assert_that(file.exists(iclus_nc))
 }
 
@@ -142,7 +140,7 @@ if (!file.exists(nlcd_img)) {
 
 #Download the roads
 
-roads_shp <- file.path(roads_prefix, "tlgdb_2015_a_us_roads", 'tlgdb_2015_a_us_roads.gdb')
+roads_shp <- file.path(roads_prefix, 'tlgdb_2015_a_us_roads.gdb')
 if (!file.exists(roads_shp)) {
   loc <- "ftp://ftp2.census.gov/geo/tiger/TGRGDB15/tlgdb_2015_a_us_roads.gdb.zip"
   dest <- paste0(roads_prefix, ".zip")
