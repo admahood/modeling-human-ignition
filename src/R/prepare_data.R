@@ -1,15 +1,17 @@
 library(raster)
 library(tidyverse)
 library(sf)
+library(lubridate)
 
 source("src/R/get_data.R")
+
 # Prepare all spatial data for analysis
 raw_prefix <- file.path("data", "raw")
 
 p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 
 # Clean the FPA database class
-fpa_fire <- st_read(dsn = file.path(rraw_prefix, "fpa-fod", "Data", "FPA_FOD_20170508.gdb"),
+fpa_fire <- st_read(dsn = file.path(raw_prefix, "fpa-fod", "Data", "FPA_FOD_20170508.gdb"),
                     layer = "Fires", quiet= FALSE) %>%
   filter(!(STATE %in% c("Alaska", "Hawaii", "Puerto Rico") & FIRE_SIZE >= 0.1)) %>%  
   dplyr::select(FPA_ID, LATITUDE, LONGITUDE, ICS_209_INCIDENT_NUMBER, ICS_209_NAME, MTBS_ID, MTBS_FIRE_NAME,
@@ -24,12 +26,12 @@ fpa_fire <- st_read(dsn = file.path(rraw_prefix, "fpa-fod", "Data", "FPA_FOD_201
   st_transform(p4string)
 
 # Read in the shapefiles
-usa_shp <- st_read(dsn = file.path("data/raw/cb_2016_us_state_20m/"),
+usa_shp <- st_read(dsn = file.path(raw_prefix, "cb_2016_us_state_20m"),
                    layer = "cb_2016_us_state_20m") %>% 
   st_transform(p4string) %>%
   filter(!STUSPS %in% c("HI", "AK", "PR"))
 
-eco_reg <- st_read(dsn = file.path("data/raw/us_eco_l3/"),
+eco_reg <- st_read(dsn = file.path(raw_prefix, "us_eco_l3"),
                    layer = "us_eco_l3") %>% 
   st_transform(p4string)
 
