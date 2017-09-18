@@ -4,6 +4,7 @@ library(rvest)
 library(httr)
 library(purrr)
 
+prefix <- file.path("data")
 raw_prefix <- file.path("data", "raw")
 us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
 ecoregion_prefix <- file.path(raw_prefix, "us_eco_l3")
@@ -17,7 +18,7 @@ elev_prefix <- file.path(raw_prefix, 'metdata_elevationdata')
 tl_prefix <- file.path(raw_prefix, 'Electric_Power_Transmission_Lines')
 
 # Check if directory exists for all variable aggregate outputs, if not then create
-var_dir <- list(raw_prefix,
+var_dir <- list(prefix, raw_prefix,
                 us_prefix,
                 ecoregion_prefix,
                 roads_prefix,
@@ -127,13 +128,15 @@ if (!file.exists(elev_nc)) {
 
 
 #Download the NLCD 2011
+source("src/R/decompress_function.R")
 
 nlcd_img <- file.path(nlcd_prefix, 'nlcd_2011_landcover_2011_edition_2014_10_10.img')
 if (!file.exists(nlcd_img)) {
   loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2011&FNAME=nlcd_2011_landcover_2011_edition_2014_10_10.zip"
   dest <- paste0(raw_prefix, ".zip")
   download.file(loc, dest)
-  unzip(dest, exdir = raw_prefix)
+  decompress_file("../data/", "raw.zip", .file_cache = FALSE)
+  file.rename("../data/nlcd_2011_landcover_2011_edition_2014_10_10",  to = "../data/raw/nlcd_2011_landcover_2011_edition_2014_10_10")
   unlink(dest)
   assert_that(file.exists(nlcd_img))
 }
