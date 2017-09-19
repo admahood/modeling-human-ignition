@@ -4,8 +4,8 @@ library(rvest)
 library(httr)
 library(purrr)
 
-prefix <- file.path("data")
-raw_prefix <- file.path("data", "raw")
+prefix <- file.path("../data")
+raw_prefix <- file.path(prefix, "raw")
 us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
 ecoregion_prefix <- file.path(raw_prefix, "us_eco_l3")
 fpa_prefix <- file.path(raw_prefix, "fpa-fod")
@@ -136,7 +136,8 @@ if (!file.exists(nlcd_img)) {
   dest <- paste0(raw_prefix, ".zip")
   download.file(loc, dest)
   decompress_file("../data/", "raw.zip", .file_cache = FALSE)
-  file.rename("../data/nlcd_2011_landcover_2011_edition_2014_10_10",  to = "../data/raw/nlcd_2011_landcover_2011_edition_2014_10_10")
+  file.rename("../data/nlcd_2011_landcover_2011_edition_2014_10_10",  
+              to = "../data/raw/nlcd_2011_landcover_2011_edition_2014_10_10")
   unlink(dest)
   assert_that(file.exists(nlcd_img))
 }
@@ -148,7 +149,7 @@ if (!file.exists(roads_shp)) {
   loc <- "ftp://ftp2.census.gov/geo/tiger/TGRGDB15/tlgdb_2015_a_us_roads.gdb.zip"
   dest <- paste0(roads_prefix, ".zip")
   download.file(loc, dest)
-  unzip(dest, exdir = roads_prefix)
+  unzip(dest, exdir = raw_prefix)
   unlink(dest)
   assert_that(file.exists(roads_shp))
 }
