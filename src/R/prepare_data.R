@@ -9,7 +9,7 @@ source("src/R/get_data.R")
 raw_prefix <- file.path("../data", "raw")
 
 # p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs" # Latlong
-p4string <- "+init=epsg:2163"  # e.g. US National Atlas Equal Area
+p4string <- +proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs   #http://spatialreference.org/ref/esri/usa-contiguous-equidistant-conic/
 
 # Clean the FPA database class
 fpa_fire <- st_read(dsn = file.path(raw_prefix, "fpa-fod", "Data", "FPA_FOD_20170508.gdb"),
