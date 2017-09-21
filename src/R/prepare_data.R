@@ -2,10 +2,6 @@ library(raster)
 library(tidyverse)
 library(sf)
 library(lubridate)
-library(snowfall)
-# install.packages("devtools")
-# devtools::install_github("ecohealthalliance/fasterize")
-# library(fasterize)
 
 #source("src/R/get_data.R")
 
@@ -18,38 +14,54 @@ p4string_ea <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=637
 
 # CONUS states
 usa_shp <- st_read(dsn = file.path(raw_prefix, "cb_2016_us_state_20m"),
-                   layer = "cb_2016_us_state_20m") %>% 
-  st_transform(p4string_ea) %>% 
+                   layer = "cb_2016_us_state_20m") %>%
+  st_transform(p4string_ea) %>%
   filter(!STUSPS %in% c("HI", "AK", "PR"))
 
 # Level 3 ecoregions
 eco_reg <- st_read(dsn = file.path(raw_prefix, "us_eco_l3"),
-                   layer = "us_eco_l3") %>% 
-  st_transform(p4string_ea) %>%
-  st_intersection(., usa_shp)
+                   layer = "us_eco_l3") %>%
+  st_transform(p4string_ea)
 
-rds <- st_read(dsn = file.path(raw_prefix, "tlgdb_2015_a_us_roads", "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads') 
+rds <- st_read(dsn = file.path(raw_prefix, "tlgdb_2015_a_us_roads", "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
 
 # Primary roads
 primary_rds <- rds %>%
-  filter(MTFCC == "S1100") %>% 
+  filter(MTFCC == "S1100") %>%
   st_transform(p4string_ea) %>%
   st_intersection(., usa_shp) %>%
   mutate(bool_prds = 1)
 
 # Secondary roads
 secondary_rds <- rds %>%
-  filter(MTFCC == "S1200") %>% 
+  filter(MTFCC == "S1200") %>%
   st_transform(p4string_ea) %>%
   st_intersection(., usa_shp) %>%
   mutate(bool_srds = 1)
 
 # Tertiary roads
 tertiary_rds <- rds %>%
-  filter(MTFCC == "S1400") %>% 
+  filter(MTFCC == "S1400") %>%
   st_transform(p4string_ea) %>%
   st_intersection(., usa_shp) %>%
   mutate(bool_trds = 1)
+rm(rds) # remove the roads variable to converse memory
+
+st_write(primary_rds,
+         "../data/processed/primary_rds.gpkg",
+         driver = "GPKG",
+         update=TRUE,
+         delete_dsn=TRUE)
+st_write(secondary_rds,
+         "../data/processed/secondary_rds.gpkg",
+         driver = "GPKG",
+         update=TRUE,
+         delete_dsn=TRUE)
+st_write(tertiary_rds,
+         "../data/processed/tertiary_rds.gpkg",
+         driver = "GPKG",
+         update=TRUE,
+         delete_dsn=TRUE)
 
 # Railrods
 rail_rds <- st_read(dsn = file.path(raw_prefix, "tlgdb_2015_a_us_rails", 'tlgdb_2015_a_us_rails.gdb'), layer = 'Rails') %>%
@@ -57,20 +69,30 @@ rail_rds <- st_read(dsn = file.path(raw_prefix, "tlgdb_2015_a_us_rails", 'tlgdb_
   st_intersection(., usa_shp) %>%
   mutate(bool_rrds = 1)
 
-rm(rds) # remove the roads variable to converse memory
+st_write(rail_rds,
+         "../data/processed/rail_rds.gpkg",
+         driver = "GPKG",
+         update=TRUE,
+         delete_dsn=TRUE)
 
 # Power transmission lines
-tl <- st_read(dsn = file.path(raw_prefix, "ETL", 'Electric_Power_Transmission_Lines.shp')) %>%
+tl <- st_read(dsn = file.path(raw_prefix, "Electric_Power_Transmission_Lines", 'Electric_Power_Transmission_Lines.shp')) %>%
   st_transform(p4string_ea) %>%
   st_intersection(., usa_shp) %>%
-  mutate(bool_tl = 1) 
-tl <- tl %>% 
-  filter(st_is(., c("LINESTRING"))) 
+  mutate(bool_tl = 1)
+tl <- tl %>%
+  filter(st_is(., c("LINESTRING")))
+
+st_write(tl,
+         "../data/processed/tranmission_lns.gpkg",
+         driver = "GPKG",
+         update=TRUE,
+         delete_dsn=TRUE)
 
 # Clean the FPA database class
 fpa_fire <- st_read(dsn = file.path(raw_prefix, "fpa-fod", "Data", "FPA_FOD_20170508.gdb"),
                     layer = "Fires", quiet= FALSE) %>%
-  filter(!(STATE %in% c("Alaska", "Hawaii", "Puerto Rico") & FIRE_SIZE >= 0.1)) %>%  
+  filter(!(STATE %in% c("Alaska", "Hawaii", "Puerto Rico") & FIRE_SIZE >= 0.1)) %>%
   dplyr::select(FPA_ID, LATITUDE, LONGITUDE, ICS_209_INCIDENT_NUMBER, ICS_209_NAME, MTBS_ID, MTBS_FIRE_NAME,
                 FIRE_YEAR, DISCOVERY_DATE, DISCOVERY_DOY, STAT_CAUSE_DESCR, FIRE_SIZE, STATE) %>%
   mutate(IGNITION = ifelse(STAT_CAUSE_DESCR == "Lightning", "Lightning", "Human"),
@@ -100,8 +122,12 @@ ecoregion <- rasterize(as(eco_reg, "Spatial"), elevation, "US_L3CODE")
 fpa_counts <- rasterize(as(fpa_fire, "Spatial"), elevation, "IGNITION", fun = "count") %>%
   crop(as(usa_shp, "Spatial")) %>%
   mask(as(usa_shp, "Spatial"))
+writeRaster(fpa_counts, filename = paste0("../data",  "/processed/", "fpa_counts", ".tif"),
+            format = "GTiff")
 
 fpa_density <- fpa_counts/16000 # Equiv to the fire counts / area of a 4km pixel (4k x 4k = 16k)
+writeRaster(fpa_counts, filename = paste0("../data",  "/processed/", "fpa_density", ".tif"),
+            format = "GTiff")
 
 rm(fpa_fire)
 
@@ -116,7 +142,7 @@ dis_transmission_lines <- rasterize(as(tl, "Spatial"), elevation, "bool_tl") %>%
 
 dis_railroads <- rasterize(as(rail_rds, "Spatial"), elevation, "bool_rrds") %>%
   disaggregate(., fact = 20) %>%
-  projectRaster(elevation.disaggregate) %>%  
+  projectRaster(elevation.disaggregate) %>%
   distance() %>%
   aggregate(fact=40, fun=mean) %>%
   projectRaster(elevation) %>%
