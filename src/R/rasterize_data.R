@@ -2,16 +2,31 @@ library(raster)
 library(tidyverse)
 library(sf)
 library(lubridate)
+library(snowfall)
+
+
+# Prepare all spatial data for analysis
+raw_prefix <- file.path("data", "raw")
 
 # p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs" # Latlong
 p4string_ed <- "+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"   #http://spatialreference.org/ref/esri/102005/
 p4string_ea <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"   #http://spatialreference.org/ref/sr-org/6903/
 
-# Prepare all spatial data for analysis
-raw_prefix <- file.path("../data", "raw")
+tl <- st_read(dsn = file.path("data", "ancillary", "power_lines.gpkg"),
+              layer = "power_lines", quiet= TRUE) %>%
+  st_intersection(., usa_shp)
+
+dtl <- raster("data/ancillary/dis_transmission_lines.tif")
+
+# CONUS states
+usa_shp <- st_read(dsn = file.path(raw_prefix, "cb_2016_us_state_20m"),
+                   layer = "cb_2016_us_state_20m") %>%
+  st_transform(p4string_ea) %>%
+  filter(STUSPS == "NH" | STUSPS == "VT")
+  #filter(!STUSPS %in% c("HI", "AK", "PR"))
 
 # This will be the raster "template" for all shapefile to raster conversions
-elevation <- raster(file.path(raw_prefix, "metdata_elevationdata", "metdata_elevationdata.nc")) %>%
+elevation <- raster(file.path("data", "metdata_elevationdata", "metdata_elevationdata.nc")) %>%
   projectRaster(crs = p4string_ea, res = 4000) %>%
   crop(as(usa_shp, "Spatial")) %>%
   mask(as(usa_shp, "Spatial"))
@@ -35,60 +50,45 @@ writeRaster(fpa_counts, filename = paste0("../data",  "/processed/", "fpa_densit
 
 rm(fpa_fire)
 
-# split vector data into n parts, the same as number of processors (minus 1)
-# ncor <- parallel::detectCores()
-# features <- 1:nrow(tl[,])
-# parts <- split(features, cut(features, ncor))
+ncor <- parallel::detectCores()
 
-# sfInit(parallel = TRUE, cpus = ncor)
-# sfLibrary(snowfall)
-# sfLibrary(raster)
-# sfLibrary(sf)
-# sfLibrary(tidyverse)
-# 
-# sfExport(list = c("parts", "usa_shp", "tl", "elevation", "elevation.disaggregate"))
-# 
-# dis_transmission_lines <- sfLapply(1:ncor, 
-#          function(y, x){
-#            outrst <- rasterize(as(tl[parts[[x]],], "Spatial"), elevation, "bool_tl") %>%
-#              disaggregate(., fact = 20) %>%
-#              projectRaster(elevation.disaggregate) %>%
-#              distance(.)  %>%
-#              aggregate(fact = 20, fun = mean) %>%
-#              projectRaster(elevation) %>%
-#              crop(as(usa_shp, "Spatial")) %>%
-#              mask(as(usa_shp, "Spatial"))
-#          })
-# sfStop()
-# 
-# dis_transmission_lines <- do.call(merge, dis_transmission_lines)
+shp_rst <- function(y, x, lvl, j, k){
+  # y = input shapefile
+  # x = number of splits to iterate on in parallel
+  # lvl = the shapefile attribute to rasterize
+  # j = the larger underlying raster (4k)
+  # k = the smaller underlying raster (200m)
+  features <- 1:nrow(y[,])
+  parts <- split(features, cut(features, ncor))
+  
+  outrst <- rasterize(as(y[parts[[x]],], "Spatial"), j, lvl) %>%
+    disaggregate(., fact = 20) %>%
+    projectRaster(k)
+}
 
-# shp_to_rst <- function(x, y){
-#   outrst <- rasterize(as(y[parts[[x]],], "Spatial"), elevation, "bool_tl") %>%
-#     disaggregate(., fact = 20) %>%
-#     projectRaster(elevation.disaggregate) %>%
-#     distance(.)  %>%
-#     aggregate(fact = 20, fun = mean) %>%
-#     projectRaster(elevation) %>%
-#     crop(as(usa_shp, "Spatial")) %>%
-#     mask(as(usa_shp, "Spatial"))
-# }
-# 
-# # Run the daily_to_monthly function in parallel
-# library(doParallel)
-# library(foreach)
-# cl <- makeCluster(16)
-# registerDoParallel(cl)
-# 
-# dis_transmission_lines <- foreach(i = 1:ncor, .packages= c("raster","tidyverse", "sf","foreach"),
-#         .combine = rbind) %dopar% {
-#   shp_to_rst(x = i, y = tl)}
-# 
-# stopCluster(cl)
+sfInit(parallel = TRUE, cpus = ncor)
+sfLibrary(snowfall)
+sfLibrary(raster)
+sfLibrary(sf)
+sfLibrary(tidyverse)
+
+sfExport(list = c("ncor", "usa_shp", "tl", "elevation", "elevation.disaggregate"))
+rst_tl <- sfLapply(1:ncor, shp_rst, y = tl, lvl = "bool_tl",
+                   j = elevation, k = elevation.disaggregate)
+sfStop()
+
+dis_transmission_lines <- do.call(merge, rst_tl) %>%
+  distance(.)  %>%
+  aggregate(fact = 20, fun = mean) %>%
+  projectRaster(elevation) %>%
+  crop(as(usa_shp, "Spatial")) %>%
+  mask(as(usa_shp, "Spatial"))
+
 
 
 dis_transmission_lines <- rasterize(as(tl, "Spatial"), elevation, "bool_tl") %>%
-  projectRaster(crs = p4string_ed, res = 4000) %>%
+  disaggregate(., fact = 20) %>%
+  projectRaster(elevation.disaggregate) %>%
   distance(.)  %>%
   projectRaster(elevation) %>%
   crop(as(usa_shp, "Spatial")) %>%
@@ -125,7 +125,8 @@ writeRaster(dis_secondary_rds, filename = paste0("../data",  "/processed/", "dis
 
 dis_tertiary_rds <- rasterize(as(tertiary_rds, "Spatial"), elevation, "bool_trds") %>%
   disaggregate(., fact = 20) %>%
-  projectRaster(elevation.disaggregate) %>%    distance() %>%
+  projectRaster(elevation.disaggregate) %>%    
+  distance() %>%
   aggregate(fact=40, fun=mean) %>%
   projectRaster(elevation) %>%
   crop(as(usa_shp, "Spatial")) %>%
