@@ -40,11 +40,11 @@ secondary_rds <- rds %>%
   mutate(bool_srds = 1)
 
 # # Tertiary roads
-# tertiary_rds <- rds %>%
-#   filter(MTFCC == "S1400") %>%
-#   st_transform(p4string_ea) %>%
-#   st_intersection(., usa_shp) %>%
-#   mutate(bool_trds = 1)
+tertiary_rds <- rds %>%
+  filter(MTFCC == "S1400") %>%
+  st_transform(p4string_ea) %>%
+  st_intersection(., usa_shp) %>%
+  mutate(bool_trds = 1)
 
 # All major roads
 all_rds <- rds %>%
@@ -63,16 +63,16 @@ st_write(secondary_rds,
          driver = "GPKG",
          update=TRUE,
          delete_dsn=TRUE)
-# st_write(tertiary_rds,
-#          "../data/processed/tertiary_rds.gpkg",
-#          driver = "GPKG",
-#          update=TRUE,
-#          delete_dsn=TRUE)
-# st_write(all_rds,
-#          "../data/processed/all_rds.gpkg",
-#          driver = "GPKG",
-#          update=TRUE,
-#          delete_dsn=TRUE)
+st_write(tertiary_rds,
+         "../data/processed/tertiary_rds.gpkg",
+         driver = "GPKG",
+         update=TRUE,
+         delete_dsn=TRUE)
+st_write(all_rds,
+         "../data/processed/all_rds.gpkg",
+         driver = "GPKG",
+         update=TRUE,
+         delete_dsn=TRUE)
 
 # Railrods
 rail_rds <- st_read(dsn = file.path(raw_prefix, "tlgdb_2015_a_us_rails",
