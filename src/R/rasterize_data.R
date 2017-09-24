@@ -27,6 +27,8 @@ elevation <- raster(file.path("data", "metdata_elevationdata", "metdata_elevatio
   mask(as(usa_shp, "Spatial"))
 elevation <- calc(elevation, fun = function(x){x[x < 0] <- NA; return(x)})
 
+elevation <- calc(elevation, fun = function(x){x[x < 0] <- NA; return(x)})
+
 elevation.disaggregate <- disaggregate(elevation, fact = 20) %>%
   projectRaster(crs = p4string_ed, res = 200)
 elevation.disaggregate <- calc(elevation.disaggregate, fun = function(x){x[x < 0] <- NA; return(x)})
@@ -112,8 +114,8 @@ sfLibrary(raster)
 sfLibrary(sf)
 sfLibrary(tidyverse)
 
-sfExport(list = c("ncor", "usa_shp", "prds", "elevation", "elevation.disaggregate"))
-rst <- sfLapply(1:ncor, shp_rst, y = prds, lvl = "bool_prds",
+sfExport(list = c("ncor", "usa_shp", "primary_rds", "elevation", "elevation.disaggregate"))
+rst <- sfLapply(1:ncor, shp_rst, y = primary_rds, lvl = "bool_prds",
                 j = elevation, k = elevation.disaggregate)
 sfStop()
 
@@ -133,8 +135,8 @@ sfLibrary(raster)
 sfLibrary(sf)
 sfLibrary(tidyverse)
 
-sfExport(list = c("ncor", "usa_shp", "strds", "elevation", "elevation.disaggregate"))
-rst <- sfLapply(1:ncor, shp_rst, y = srds, lvl = "bool_srds",
+sfExport(list = c("ncor", "usa_shp", "secondary_rds", "elevation", "elevation.disaggregate"))
+rst <- sfLapply(1:ncor, shp_rst, y = secondary_rds, lvl = "bool_srds",
                 j = elevation, k = elevation.disaggregate)
 sfStop()
 
