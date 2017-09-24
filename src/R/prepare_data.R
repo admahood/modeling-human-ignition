@@ -6,7 +6,7 @@ library(lubridate)
 #source("src/R/get_data.R")
 
 # Prepare all spatial data for analysis
-raw_prefix <- file.path("../data", "raw")
+raw_prefix <- file.path("data", "raw")
 
 # p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs" # Latlong
 p4string_ed <- "+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"   #http://spatialreference.org/ref/esri/102005/
@@ -39,16 +39,9 @@ secondary_rds <- rds %>%
   st_intersection(., usa_shp) %>%
   mutate(bool_srds = 1)
 
-# # Tertiary roads
-# tertiary_rds <- rds %>%
-#   filter(MTFCC == "S1400") %>%
-#   st_transform(p4string_ea) %>%
-#   st_intersection(., usa_shp) %>%
-#   mutate(bool_trds = 1)
-
 # All major roads
 all_rds <- rds %>%
-  filter(MTFCC == "S1400" | MTFCC == "S1200" | MTFCC == "S1200") %>%
+  filter(MTFCC == "S1200" | MTFCC == "S1200") %>%
   st_transform(p4string_ea) %>%
   st_intersection(., usa_shp) %>%
   mutate(bool_ards = 1)
@@ -63,16 +56,11 @@ st_write(secondary_rds,
          driver = "GPKG",
          update=TRUE,
          delete_dsn=TRUE)
-# st_write(tertiary_rds,
-#          "../data/processed/tertiary_rds.gpkg",
-#          driver = "GPKG",
-#          update=TRUE,
-#          delete_dsn=TRUE)
-# st_write(all_rds,
-#          "../data/processed/all_rds.gpkg",
-#          driver = "GPKG",
-#          update=TRUE,
-#          delete_dsn=TRUE)
+st_write(all_rds,
+         "../data/processed/all_rds.gpkg",
+         driver = "GPKG",
+         update=TRUE,
+         delete_dsn=TRUE)
 
 # Railrods
 rail_rds <- st_read(dsn = file.path(raw_prefix, "tlgdb_2015_a_us_rails",
