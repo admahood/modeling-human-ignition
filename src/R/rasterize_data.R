@@ -112,8 +112,8 @@ sfLibrary(raster)
 sfLibrary(sf)
 sfLibrary(tidyverse)
 
-sfExport(list = c("ncor", "usa_shp", "prds", "elevation", "elevation.disaggregate"))
-rst <- sfLapply(1:ncor, shp_rst, y = prds, lvl = "bool_prds",
+sfExport(list = c("ncor", "usa_shp", "primary_rds", "elevation", "elevation.disaggregate"))
+rst <- sfLapply(1:ncor, shp_rst, y = primary_rds, lvl = "bool_prds",
                 j = elevation, k = elevation.disaggregate)
 sfStop()
 
@@ -133,8 +133,8 @@ sfLibrary(raster)
 sfLibrary(sf)
 sfLibrary(tidyverse)
 
-sfExport(list = c("ncor", "usa_shp", "strds", "elevation", "elevation.disaggregate"))
-rst <- sfLapply(1:ncor, shp_rst, y = srds, lvl = "bool_srds",
+sfExport(list = c("ncor", "usa_shp", "secondary_rds", "elevation", "elevation.disaggregate"))
+rst <- sfLapply(1:ncor, shp_rst, y = secondary_rds, lvl = "bool_srds",
                 j = elevation, k = elevation.disaggregate)
 sfStop()
 
