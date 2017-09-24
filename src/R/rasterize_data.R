@@ -6,7 +6,7 @@ library(snowfall)
 
 
 # Prepare all spatial data for analysis
-raw_prefix <- file.path("data", "raw")
+raw_prefix <- file.path("../data", "raw")
 
 # p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs" # Latlong
 p4string_ed <- "+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"   #http://spatialreference.org/ref/esri/102005/
@@ -21,7 +21,7 @@ usa_shp <- st_read(dsn = file.path(raw_prefix, "cb_2016_us_state_20m"),
                                        "WY", "NM", "AZ", "MT"), 1, 2)))
 
 # This will be the raster "template" for all shapefile to raster conversions
-elevation <- raster(file.path("data", "metdata_elevationdata", "metdata_elevationdata.nc")) %>%
+elevation <- raster(file.path(raw_prefix, "metdata_elevationdata", "metdata_elevationdata.nc")) %>%
   projectRaster(crs = p4string_ea, res = 4000) %>%
   crop(as(usa_shp, "Spatial")) %>%
   mask(as(usa_shp, "Spatial"))
