@@ -57,7 +57,7 @@ shp_rst <- function(y, x, lvl, j, k){
   # k = the smaller underlying raster (200m)
   features <- 1:nrow(y[,])
   parts <- split(features, cut(features, ncor))
-  
+
   outrst <- rasterize(as(y[parts[[x]],], "Spatial"), j, lvl) %>%
     disaggregate(., fact = 20) %>%
     projectRaster(k)
@@ -167,4 +167,3 @@ dis_all_rds <- do.call(merge, rst) %>%
   mask(as(usa_shp, "Spatial"))
 writeRaster(dis_all_rds, filename = paste0("../data",  "/processed/", "dis_all_rds", ".tif"),
             format = "GTiff", overwrite=TRUE)
-

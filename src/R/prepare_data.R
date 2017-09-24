@@ -104,4 +104,3 @@ fpa_fire <- st_read(dsn = file.path(raw_prefix, "fpa-fod", "Data", "FPA_FOD_2017
   filter(IGNITION == "Human") %>%
   st_transform(p4string_ea) %>%
   st_intersection(., usa_shp)
-
