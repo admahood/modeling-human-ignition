@@ -27,8 +27,6 @@ elevation <- raster(file.path("data", "metdata_elevationdata", "metdata_elevatio
   mask(as(usa_shp, "Spatial"))
 elevation <- calc(elevation, fun = function(x){x[x < 0] <- NA; return(x)})
 
-elevation <- calc(elevation, fun = function(x){x[x < 0] <- NA; return(x)})
-
 elevation.disaggregate <- disaggregate(elevation, fact = 20) %>%
   projectRaster(crs = p4string_ed, res = 200)
 elevation.disaggregate <- calc(elevation.disaggregate, fun = function(x){x[x < 0] <- NA; return(x)})
