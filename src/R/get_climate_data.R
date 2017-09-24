@@ -46,13 +46,6 @@ if (!file.exists(def_nc)) {
   assert_that(file.exists(def_nc))
 }
 
-ffwi_nc <- file.path(climate_prefix, 'ffwi_19792016.nc')
-if (!file.exists(ffwi_nc)) {
-  loc <- "nimbus.cos.uidaho.edu/abatz/DATA/ffwi_1979.nc"
-  dest <- paste0(climate_prefix, "/ffwi_19792016.nc")
-  download.file(loc, dest)
-  assert_that(file.exists(ffwi_nc))
-}
 
 
 
