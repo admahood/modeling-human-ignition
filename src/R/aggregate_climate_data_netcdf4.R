@@ -1,4 +1,3 @@
-
 library(raster)
 library(lubridate)
 library(rgdal)
@@ -26,14 +25,13 @@ if (!file.exists(us_shp)) {
   unlink(dest)
 }
 
-usa_shp <- readOGR(dsn = file.path("../data/raw/cb_2016_us_state_20m/"),
+usa_shp <- readOGR(dsn = file.path("../data/raw/cb_2016_us_state_20m/"), 
                    layer = "cb_2016_us_state_20m")
-
-usa_shp <- spTransform(usa_shp,
+usa_shp <- spTransform(usa_shp, 
                        CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"))
 
-
-netcdf_import <- function(file, mask){
+netcdf_import <- function(file, masks){
+  masks = usa_shp
   file_split <- file %>%
     basename %>%
     strsplit(split = "_") %>%
@@ -61,49 +59,43 @@ netcdf_import <- function(file, mask){
   nc <- nc_open(file)
   nc_att <- attributes(nc$var)$names
   ncvar <- ncvar_get(nc, nc_att)
+  rm(nc)
   tvar <- aperm(ncvar, c(3,2,1))
+  rm(ncvar)
   proj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0 "
   
   raster <- brick(tvar, crs= proj)
-  rm(list = c("ncvar", "tvar", "nc"))
+  rm(tvar)
   extent(raster) <- c(-124.793, -67.043, 25.04186, 49.41686)
-  
+  names(raster) <- paste(var, year(date_seq),
+                                     unique(month(date_seq, label = TRUE)),
+                                     sep = "_")
   # Mean
   if(!file.exists(file.path(var_prefix, paste0(out_name, "_mean", ".tif")))) {
-    monthly_mean <- raster
-    names(monthly_mean) <- paste(var, year(date_seq),
-                                       unique(month(date_seq, label = TRUE)),
-                                       sep = "_")
-    monthly_mean <- mask(monthly_mean, mask)
+    monthly_mean <- mask(raster, masks)
     writeRaster(monthly_mean, filename = file.path(var_prefix, paste0(out_name, "_mean", ".tif")),
-                format = "GTiff") }
+                format = "GTiff") 
+    rm(monthly_mean)}
 
   # Monthly mean 90th percentile
   if(!file.exists(file.path(var_prefix, paste0(out_name, "_90th", ".tif")))){
     monthly_mean_90thpct <- calc(raster, fun = function(x){ quantile(x, probs = 0.90, na.rm =TRUE)})
-    names(monthly_mean_90thpct) <- paste(var, year(date_seq),
-                                       unique(month(date_seq, label = TRUE)),
-                                       sep = "_")
-    monthly_mean_90thpct <- mask(monthly_mean_90thpct, mask)
+    monthly_mean_90thpct <- mask(monthly_mean_90thpct, masks)
     writeRaster(monthly_mean_90thpct, filename = file.path(var_prefix, paste0(out_name, "_90th", ".tif")),
-                format = "GTiff") }
+                format = "GTiff") 
+    rm(monthly_mean_90thpct)}
   
   # Monthly mean 95th percentile
   if(!file.exists(file.path(var_prefix, paste0(out_name, "_95th", ".tif")))){
     monthly_mean_95thpct <- calc(raster, fun = function(x){ quantile(x, probs = 0.95, na.rm =TRUE)})
-    names(monthly_mean_95thpct) <- paste(var, year(date_seq),
-                                         unique(month(date_seq, label = TRUE)),
-                                         sep = "_")
-    monthly_mean_95thpct <- mask(monthly_mean_95thpct, mask)
+    monthly_mean_95thpct <- mask(monthly_mean_95thpct, masks)
     writeRaster(monthly_mean_95thpct, filename = file.path(var_prefix, paste0(out_name, "_95th", ".tif")),
-                format = "GTiff") }
+                format = "GTiff") 
+    rm(monthly_mean_95thpct)}
 }
 
 monthly_files <- list.files(climate_prefix, pattern = "nc", 
                           full.names = TRUE, recursive = TRUE)
-# lapply(monthly_files[1],
-#         netcdf_import,
-#         mask = usa_shp)
 
 sfInit(parallel = TRUE, cpus = parallel::detectCores())
 sfLibrary(snowfall)
@@ -114,9 +106,9 @@ sfLibrary(rgdal)
 sfLibrary(lubridate)
 sfLibrary(tools)
 
-sfExport(list = c("usa_shp", "monthly_files"))
+sfExportAll()
 
 sfLapply(monthly_files,
          netcdf_import,
-         mask = usa_shp)
+         masks = usa_shp)
 sfStop()
