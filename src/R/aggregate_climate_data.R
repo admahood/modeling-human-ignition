@@ -6,6 +6,15 @@ library(tidyverse)
 library(assertthat)
 library(snowfall)
 
+for(i in rep(1979:2016)) {
+    if (!file.exists(file.path(".", paste0("/ffwi_", i, ".nc")))) {
+        loc <- paste0("nimbus.cos.uidaho.edu/abatz/DATA/ffwi_", i, ".nc")
+        dest <- file.path(".", paste0("/ffwi_", i, ".nc"))
+        download.file(loc, dest)
+        assert_that(file.exists(file.path(".", paste0("/ffwi_", i, ".nc"))))
+      }
+  }
+
 # Creat directories for state data
 raw_prefix <- file.path("../data", "raw")
 us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
