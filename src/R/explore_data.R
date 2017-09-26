@@ -1,15 +1,4 @@
-primary_rds <- st_read("../data/ancillary/primary_rds.gpkg") 
-secondary_rds <- st_read("../data/ancillary/secondary_rds.gpkg") 
-tl <- st_read("../data/ancillary/tranmission_lns.gpkg") 
-rail_rds <- st_read("../data/ancillary/rail_rds.gpkg") 
 
-psrds <- primary_rds %>%
-  select(-starts_with("bool"))
-ssrds <- secondary_rds  %>%
-  select(-starts_with("bool"))
-
-all_rds <- rbind(psrds, ssrds) %>%
-  mutate(bool_ards = 1)
 
 region <- rasterize(as(usa_shp, "Spatial"), elevation, "region")
 

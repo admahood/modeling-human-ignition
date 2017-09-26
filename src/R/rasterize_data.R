@@ -4,6 +4,18 @@ library(sf)
 library(lubridate)
 library(snowfall)
 
+primary_rds <- st_read("../data/ancillary/primary_rds.gpkg") 
+secondary_rds <- st_read("../data/ancillary/secondary_rds.gpkg") 
+tl <- st_read("../data/ancillary/tranmission_lns.gpkg") 
+rail_rds <- st_read("../data/ancillary/rail_rds.gpkg") 
+
+psrds <- primary_rds %>%
+  select(-starts_with("bool"))
+ssrds <- secondary_rds  %>%
+  select(-starts_with("bool"))
+
+all_rds <- rbind(psrds, ssrds) %>%
+  mutate(bool_ards = 1)
 
 # Prepare all spatial data for analysis
 raw_prefix <- file.path("../data", "raw")
@@ -49,7 +61,7 @@ rm(fpa_fire)
 
 ncor <- parallel::detectCores()
 
-shp_rst <- function(y, x, lvl, j, k){
+shp_rst <- function(y, x, lvl, j){
   # y = input shapefile
   # x = number of splits to iterate on in parallel
   # lvl = the shapefile attribute to rasterize
@@ -57,10 +69,13 @@ shp_rst <- function(y, x, lvl, j, k){
   # k = the smaller underlying raster (200m)
   features <- 1:nrow(y[,])
   parts <- split(features, cut(features, ncor))
+  require(snowfall)
+  require(raster)
+  require(sf)
+  require(tidyverse)
 
   outrst <- rasterize(as(y[parts[[x]],], "Spatial"), j, lvl) %>%
-    disaggregate(., fact = 20) %>%
-    projectRaster(k)
+    projectRaster(j)
 }
 
 combine_rst <- function(y){
@@ -74,51 +89,62 @@ combine_rst <- function(y){
     mask(as(usa_shp, "Spatial"))
 }
 
-sfInit(parallel = TRUE, cpus = ncor)
-sfLibrary(snowfall)
-sfLibrary(raster)
-sfLibrary(sf)
-sfLibrary(tidyverse)
-
-sfExportAll()
-tl_rst <- sfLapply(1:ncor, shp_rst, y = tl, lvl = "bool_tl",
-                   j = elevation, k = elevation.disaggregate)
-
-rail_rst <- sfLapply(1:ncor, shp_rst, y = rail_rds, lvl = "bool_rrds",
-                j = elevation, k = elevation.disaggregate)
-
-prds_rst <- sfLapply(1:ncor, shp_rst, y = primary_rds, lvl = "bool_prds",
-                     j = elevation, k = elevation.disaggregate)
-
-srds_rst <- sfLapply(1:ncor, shp_rst, y = secondary_rds, lvl = "bool_srds",
-                     j = elevation, k = elevation.disaggregate)
-
-ards_rst <- sfLapply(1:ncor, shp_rst, y = all_rds, lvl = "bool_ards",
-                j = elevation, k = elevation.disaggregate)
-sfStop()
-
 # Calculate distance to power lines
+sfInit(parallel = TRUE, cpus = ncor)
+sfExport(list = c("ncor", "usa_shp", "tl", "elevation"))
+tl_rst <- sfLapply(1:ncor, shp_rst, y = tl, lvl = "bool_tl", j = elevation)
+sfStop()
 dis_transmission_lines <- combine_rst(tl_rst) 
+writeRaster(dis_transmission_lines, filename = paste0("../data", "/processed/", "dis_transmission_lines", ".tif"),
+            format = "GTiff", overwrite=TRUE)
+#rm(list = c("tl_rst", "dis_transmission_lines"))
 
 # Calculate distance to railroads
+sfInit(parallel = TRUE, cpus = ncor)
+sfExport(list = c("ncor", "usa_shp", "rail_rds", "elevation"))
+rail_rst <- sfLapply(1:ncor, shp_rst, y = rail_rds, lvl = "bool_rrds", j = elevation)
+sfStop()
 dis_railroads <- combine_rst(rail_rst)
-
-# Calculate distance to primary roads
-dis_primary_rds <- combine_rst(prds_rst)
-
-# Calculate distance to secondary roads
-dis_secondary_rds <- combine_rst(srds_rst)
-
-# Calculate distance to primary and secondary roads
-dis_all_rds <- combine_rst(ards_rst)
-
-writeRaster(dis_transmission_lines, filename = paste0("../data", "/ancillary/", "dis_transmission_lines", ".tif"),
-            format = "GTiff", overwrite=TRUE)
 writeRaster(dis_railroads, filename = paste0("../data", "/processed/", "dis_railroads", ".tif"),
             format = "GTiff", overwrite=TRUE)
+#rm(list = c("rail_rst", "dis_railroads"))
+
+# Calculate distance to primary roads
+sfInit(parallel = TRUE, cpus = ncor)
+sfExport(list = c("ncor", "usa_shp", "primary_rds", "elevation"))
+prds_rst <- sfLapply(1:ncor, shp_rst, y = primary_rds, lvl = "bool_prds", j = elevation)
+sfStop()
+dis_primary_rds <- combine_rst(prds_rst)
 writeRaster(dis_primary_rds, filename = paste0("../data", "/processed/", "dis_primary_rds", ".tif"),
             format = "GTiff", overwrite=TRUE)
-writeRaster(dis_secondary_rds, filename = paste0("data", "/processed/", "dis_secondary_rds", ".tif"),
+#rm(list = c("prds_rst", "dis_primary_rds"))
+
+# Calculate distance to secondary roads
+sfInit(parallel = TRUE, cpus = ncor)
+sfExport(list = c("ncor", "usa_shp", "secondary_rds", "elevation"))
+srds_rst <- sfLapply(1:ncor, shp_rst, y = secondary_rds, lvl = "bool_srds", j = elevation)
+sfStop()
+dis_secondary_rds <- combine_rst(srds_rst)
+writeRaster(dis_secondary_rds, filename = paste0("../data", "/processed/", "dis_secondary_rds", ".tif"),
             format = "GTiff", overwrite=TRUE)
+#rm(list = c("srds_rst", "dis_secondary_rds"))
+
+# Calculate distance to primary and secondary roads
+sfInit(parallel = TRUE, cpus = ncor)
+sfExport(list = c("ncor", "usa_shp", "all_rds", "elevation"))
+ards_rst <- sfLapply(1:ncor, shp_rst, y = all_rds, lvl = "bool_ards", j = elevation)
+sfStop()
+dis_all_rds <- combine_rst(ards_rst)
 writeRaster(dis_all_rds, filename = paste0("../data", "/processed/", "dis_all_rds", ".tif"),
             format = "GTiff", overwrite=TRUE)
+#rm(list = c("ards_rst", "dis_all_rds"))
+
+
+
+
+
+
+
+
+
+
