@@ -7,7 +7,9 @@ library(snowfall)
 library(tools)
 
 # Creat directories for state data
-prefix <- file.path("../data")
+ifelse(Sys.getenv("LOGNAME") == "NateM", file.path("data"), 
+       ifelse(Sys.getenv("LOGNAME") == "nami1114", file.path("data"), 
+              file.path("../data")))
 raw_prefix <- file.path(prefix, "raw")
 us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
 climate_prefix <- file.path(raw_prefix, "climate")

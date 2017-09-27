@@ -6,7 +6,9 @@ library(lubridate)
 #source("src/R/get_data.R")
 
 # Prepare all spatial data for analysis
-raw_prefix <- file.path("data", "raw")
+raw_prefix <- ifelse(Sys.getenv("LOGNAME") == "NateM", file.path("data", "raw"), 
+                     ifelse(Sys.getenv("LOGNAME") == "nami1114", file.path("data", "raw"), 
+                            file.path("../data", "raw")))
 
 # p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs" # Latlong
 p4string_ed <- "+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"   #http://spatialreference.org/ref/esri/102005/

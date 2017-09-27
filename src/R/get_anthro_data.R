@@ -4,7 +4,9 @@ library(rvest)
 library(httr)
 library(purrr)
 
-prefix <- file.path("../data")
+prefix <- ifelse(Sys.getenv("LOGNAME") == "NateM", file.path("data"), 
+                 ifelse(Sys.getenv("LOGNAME") == "nami1114", file.path("data"), 
+                        file.path("../data")))
 raw_prefix <- file.path(prefix, "raw")
 us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
 ecoregion_prefix <- file.path(raw_prefix, "us_eco_l3")
@@ -18,17 +20,9 @@ elev_prefix <- file.path(raw_prefix, 'metdata_elevationdata')
 tl_prefix <- file.path(raw_prefix, 'Electric_Power_Transmission_Lines')
 
 # Check if directory exists for all variable aggregate outputs, if not then create
-var_dir <- list(prefix, raw_prefix,
-                us_prefix,
-                ecoregion_prefix,
-                roads_prefix,
-                fpa_prefix,
-                rails_prefix,
-                pd_prefix,
-                iclus_prefix,
-                nlcd_prefix,
-                elev_prefix,
-                tl_prefix)
+var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix,
+                fpa_prefix, rails_prefix, pd_prefix, iclus_prefix,
+                nlcd_prefix, elev_prefix, tl_prefix)
 
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
@@ -120,7 +114,7 @@ if (!file.exists(iclus_nc)) {
 
 elev_nc <- file.path(elev_prefix, 'metdata_elevationdata.nc')
 if (!file.exists(elev_nc)) {
-  loc <- "http://metdata.northwestknowledge.net/data/metdata_elevationdata.nc"
+  loc <- "https://climate.northwestknowledge.net/METDATA/data/metdata_elevationdata.nc"
   dest <- paste0(elev_prefix, "/metdata_elevationdata.nc")
   download.file(loc, dest)
   assert_that(file.exists(elev_nc))

@@ -7,7 +7,9 @@ library(assertthat)
 library(snowfall)
 
 # Creat directories for state data
-raw_prefix <- file.path("../data", "raw")
+raw_prefix <- ifelse(Sys.getenv("LOGNAME") == "NateM", file.path("data", "raw"), 
+                     ifelse(Sys.getenv("LOGNAME") == "nami1114", file.path("data", "raw"), 
+                            file.path("../data", "raw")))
 us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
 
 # Check if directory exists for all variable aggregate outputs, if not then create
@@ -42,6 +44,7 @@ usa_shp <- spTransform(usa_shp,
 
 
 daily_to_monthly <- function(file, mask){
+
   x <- c("lubridate", "rgdal", "ncdf4", "raster", "tidyverse", "snowfall")
   lapply(x, require, character.only = TRUE)
   
@@ -57,13 +60,13 @@ daily_to_monthly <- function(file, mask){
   data_var <- file.path(data_pro, var)
   dir_mean <- file.path(data_var, "monthly_mean")
   dir_std <- file.path(data_var, "monthly_std")
-  #dir_90th <- file.path(data_var, "monthly_mean_90thpct")
-  #dir_95th <- file.path(data_var, "monthly_mean_95thpct")
+  dir_90th <- file.path(data_var, "monthly_mean_90thpct")
+  dir_95th <- file.path(data_var, "monthly_mean_95thpct")
   dir_sum_90thpct <- file.path(data_var, "sum_days_90thpct")
   dir_sum_95thpct <- file.path(data_var, "sum_days_95thpct")
   
   var_dir <- list(data_pro, data_var, dir_mean, dir_std,
-                   dir_sum_90thpct, dir_sum_95thpct)
+                  dir_sum_90thpct, dir_sum_95thpct)
   
   lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
   
@@ -80,6 +83,7 @@ daily_to_monthly <- function(file, mask){
   date_seq <- seq(start_date, end_date, by = "1 day")
   date_seq <- date_seq[1:nlayers(raster)]
   month_seq <- month(date_seq)
+  day_seq <- day(date_seq)
   
   # Mean
   if(!file.exists(file.path(dir_mean, paste0(var, "_", year, "_mean",".tif")))) {
@@ -108,7 +112,50 @@ daily_to_monthly <- function(file, mask){
     writeRaster(monthly_std, filename = file.path(dir_std, paste0(var, "_", year, "_std",".tif")),
                 format = "GTiff") 
     rm(monthly_std) }
-
+  
+  # Monthly mean above 90th percentile
+  if(!file.exists(file.path(dir_90th, paste0(var, "_", year, "_90th",".tif")))){
+    monthly_mean <- stackApply(raster, month_seq, fun = mean)
+    
+    mean_90thpct <- stack() # create an empty stack
+    for (i in 1:nlayers(monthly_mean)){
+      pctile <- calc(monthly_mean[[i]], 
+                     fun = function(x) raster::quantile(x, probs = 0.90, na.rm = T))
+      mean_90thpct <- stack(mean_90thpct, pctile)
+    }
+    
+    mean_90thpct <- flip(t(mean_90thpct), direction = "x")
+    names(mean_90thpct) <- paste(var, year,
+                                 unique(month(date_seq, label = TRUE)),
+                                 sep = "_")
+    p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+    projection(mean_90thpct) <- CRS(p4string)
+    mean_90thpct <- mask(mean_90thpct, mask)
+    writeRaster(mean_90thpct, filename = file.path(dir_90th, paste0(var, "_", year, "_90th",".tif")),
+                format = "GTiff") 
+    rm(mean_90thpct) }
+  
+  # Monthly mean above 95th percentile
+  if(!file.exists(file.path(dir_95th, paste0(var, "_", year, "_95th",".tif")))){
+    monthly_mean <- stackApply(raster, month_seq, fun = mean)
+    
+    mean_95thpct <- stack() # create an empty stack
+    for (i in 1:nlayers(monthly_mean)){
+      pctile <- calc(monthly_mean[[i]], 
+                     fun = function(x) raster::quantile(x, probs = 0.95, na.rm = T))
+      mean_95thpct <- stack(mean_95thpct, pctile)
+    }
+    mean_95thpct <- flip(t(mean_95thpct), direction = "x")
+    names(mean_95thpct) <- paste(var, year,
+                                 unique(month(date_seq, label = TRUE)),
+                                 sep = "_")
+    p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+    projection(mean_95thpct) <- CRS(p4string)
+    mean_95thpct <- mask(mean_95thpct, mask)
+    writeRaster(mean_95thpct, filename = file.path(dir_95th, paste0(var, "_", year, "_95th",".tif")),
+                format = "GTiff") 
+    rm(mean_95thpct) }
+  
   # Sum number of days above 90th percentile
   if(!file.exists(file.path(dir_sum_90thpct, paste0(var, "_", year, "_numdays90th",".tif")))){
     sum_days_90thpct <- calc(raster, fun = function(x){x > quantile(x, probs = 0.90, na.rm =TRUE)})

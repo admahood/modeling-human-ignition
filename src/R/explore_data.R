@@ -1,18 +1,59 @@
+library(raster)
+library(tidyverse)
+library(sf)
+library(lubridate)
+library(snowfall)
 
+raw_prefix <- ifelse(Sys.getenv("LOGNAME") == "NateM", file.path("data", "raw"), 
+                     ifelse(Sys.getenv("LOGNAME") == "nami1114", file.path("data", "raw"), 
+                            file.path("../data", "raw")))
+
+p4string_ed <- "+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"   #http://spatialreference.org/ref/esri/102005/
+p4string_ea <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"   #http://spatialreference.org/ref/sr-org/6903/
+
+# CONUS states
+usa_shp <- st_read(dsn = file.path(raw_prefix, "cb_2016_us_state_20m"),
+                   layer = "cb_2016_us_state_20m") %>%
+  st_transform(p4string_ea) %>%
+  filter(!STUSPS %in% c("HI", "AK", "PR")) %>%
+  mutate(region = as.factor(ifelse(STUSPS %in% c("CO", "WA", "OR", "NV", "CA", "ID", "UT",
+                                                 "WY", "NM", "AZ", "MT"), 1, 2)))
+
+# Import the Level 3 Ecoregions
+ecoreg <- st_read(dsn = file.path(raw_prefix, "us_eco_l3"), 
+                  layer = "us_eco_l3", quiet= TRUE) %>%
+  st_transform(p4string_ea) %>%
+  st_simplify(., preserveTopology = TRUE, dTolerance = 1000)
+
+ecoreg_names <- ecoreg %>%
+  as.data.frame(.) %>%
+  select(NA_L1CODE, NA_L1NAME)
+
+# This will be the raster "template" for all shapefile to raster conversions
+elevation <- raster(file.path(raw_prefix, "metdata_elevationdata", "metdata_elevationdata.nc")) %>%
+  projectRaster(crs = p4string_ea, res = 4000) %>%
+  crop(as(usa_shp, "Spatial")) %>%
+  mask(as(usa_shp, "Spatial"))
+elevation <- calc(elevation, fun = function(x){x[x < 0] <- NA; return(x)})
 
 region <- rasterize(as(usa_shp, "Spatial"), elevation, "region")
+ecoregion <- rasterize(as(ecoreg, "Spatial"), elevation, "NA_L1CODE")
 
 rsts <- stack("data/ancillary/fpa_density.tif", 
               "data/ancillary/dis_primary_rds.tif",
+              "data/ancillary/dis_secondary_rds.tif",
+              "data/ancillary/dis_all_rds.tif",
               "data/ancillary/dis_railroads.tif",
               "data/ancillary/dis_transmission_lines.tif",
-              elevation, region) 
+              elevation, region, ecoregion) 
 
 rst_df <- as.data.frame(as(rsts, "SpatialPixelsDataFrame"))
 rst_df <-  rst_df %>%
   mutate(elevation = layer.1,
-         region = ifelse(layer.2 == 1, "West", "East")) %>%
-  select(-layer.1, -layer.2) %>%
+         region = ifelse(layer.2 == 1, "West", "East"),
+         NA_L1CODE = as.factor(layer.3)) %>%
+  select(-layer.1, -layer.2, -layer.3)  %>%
+  left_join(., ecoreg_names, by = "NA_L1CODE") %>%
   na.omit()
 
 p1 <- rst_df %>%
@@ -46,4 +87,67 @@ library(gridExtra)
 grid.arrange(p1, p2, p3, p4, nrow = 2)
 g <- arrangeGrob(p1, p2, p3, p4, nrow = 2)
 ggsave(file = "results/fireden_per_var.png", g, width = 8, height = 6, dpi=600, units = "cm", scale = 3) #saves g
+
+
+p1 <- rst_df %>%
+  ggplot(aes(x = dis_primary_rds/1000, y = fpa_density)) +
+  geom_point(alpha = 0.5, shape = 16) + theme_pub() +
+  scale_color_manual(values = "#D62728") +
+  theme(legend.position = "none") +
+  xlab("Distance to Primary Roads (km)") + ylab("Human ignition wildfire density (4km)") +
+  facet_wrap(~NA_L1NAME, labeller = label_wrap_gen(10),
+             scales = "free")
+ggsave(file = "results/fireden_prirds_ecoreg.png", p1, width = 6, 
+       height = 8, dpi=600, units = "cm", scale = 3) #saves g
+
+p2 <- rst_df %>%
+  ggplot(aes(x = dis_secondary_rds/1000, y = fpa_density)) +
+  geom_point(alpha = 0.5, shape = 16) + theme_pub() +
+  scale_color_manual(values = "#D62728") +
+  xlab("Distance to Secondary Roads (km)") + ylab("Human ignition wildfire density (4km)") +
+  facet_wrap(~NA_L1NAME, labeller = labeller(groupwrap = label_wrap_gen(10)),
+             scales = "free")
+ggsave(file = "results/fireden_secrds_ecoreg.png", p2, width = 6, 
+       height = 8, dpi=600, units = "cm", scale = 3) #saves g
+
+p3 <- rst_df %>%
+  ggplot(aes(x = dis_all_rds/1000, y = fpa_density)) +
+  geom_point(alpha = 0.5, shape = 16) + theme_pub() +
+  scale_color_manual(values = "#D62728") +
+  xlab("Distance to All Roads (km)") + ylab("Human ignition wildfire density (4km)") +
+  facet_wrap(~NA_L1NAME, labeller = labeller(groupwrap = label_wrap_gen(10)),
+             scales = "free")
+ggsave(file = "results/fireden_allrds_ecoreg.png", p3, width = 6, 
+       height = 8, dpi=600, units = "cm", scale = 3) #saves g
+
+p4 <- rst_df %>%
+  ggplot(aes(x = dis_transmission_lines/1000, y = fpa_density)) +
+  geom_point(alpha = 0.5, shape = 16) + theme_pub() +
+  scale_color_manual(values = "#D62728") +
+  xlab("Distance to Transmission Lines (km)") + ylab("Human ignition wildfire density (4km)") +
+  facet_wrap(~NA_L1NAME, labeller = labeller(groupwrap = label_wrap_gen(10)),
+             scales = "free")
+ggsave(file = "results/fireden_translines_ecoreg.png", p4, width = 6, 
+       height = 8, dpi=600, units = "cm", scale = 3) #saves g
+
+p5 <- rst_df %>%
+  ggplot(aes(x = dis_railroads/1000, y = fpa_density)) +
+  geom_point(alpha = 0.5, shape = 16) + theme_pub() +
+  scale_color_manual(values = "#D62728") +
+  theme(legend.position = "none") +
+  xlab("Distance to Railroads (km)") + ylab("Human ignition wildfire density (4km)") +
+  facet_wrap(~NA_L1NAME, labeller = labeller(groupwrap = label_wrap_gen(10)),
+             scales = "free")
+ggsave(file = "results/fireden_railrds_ecoreg.png", p5, width = 6, 
+       height = 8, dpi=600, units = "cm", scale = 3) #saves g
+
+p6 <- rst_df %>%
+  ggplot(aes(x = elevation, y = fpa_density)) +
+  geom_point(alpha = 0.5, shape = 16) + theme_pub() +
+  scale_color_manual(values = "#D62728") +
+  xlab("Elevation (m)") + ylab("Human ignition wildfire density (4km)") +
+  facet_wrap(~NA_L1NAME, labeller = labeller(groupwrap = label_wrap_gen(10)),
+             scales = "free")
+ggsave(file = "results/fireden_elevation_ecoreg.png", p6, width = 6, 
+       height = 8, dpi=600, units = "cm", scale = 3) #saves g
 
