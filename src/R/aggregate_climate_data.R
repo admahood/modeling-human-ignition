@@ -6,15 +6,6 @@ library(tidyverse)
 library(assertthat)
 library(snowfall)
 
-for(i in rep(1979:2016)) {
-    if (!file.exists(file.path(".", paste0("/ffwi_", i, ".nc")))) {
-        loc <- paste0("nimbus.cos.uidaho.edu/abatz/DATA/ffwi_", i, ".nc")
-        dest <- file.path(".", paste0("/ffwi_", i, ".nc"))
-        download.file(loc, dest)
-        assert_that(file.exists(file.path(".", paste0("/ffwi_", i, ".nc"))))
-      }
-  }
-
 # Creat directories for state data
 raw_prefix <- file.path("../data", "raw")
 us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
@@ -34,7 +25,7 @@ for(i in rep(1979:2016)) {
   }
 }
 
-us_shp <- file.path("data", "raw", "cb_2016_us_state_20m", "cb_2016_us_state_20m.shp")
+us_shp <- file.path("../data", "raw", "cb_2016_us_state_20m", "cb_2016_us_state_20m.shp")
 if (!file.exists(us_shp)) {
   loc <- "https://www2.census.gov/geo/tiger/GENZ2016/shp/cb_2016_us_state_20m.zip"
   dest <- paste0(us_prefix, ".zip")
@@ -43,7 +34,7 @@ if (!file.exists(us_shp)) {
   unlink(dest)
 }
 
-usa_shp <- readOGR(dsn = file.path("data/raw/cb_2016_us_state_20m/"),
+usa_shp <- readOGR(dsn = file.path("../data/raw/cb_2016_us_state_20m/"),
                    layer = "cb_2016_us_state_20m")
 
 usa_shp <- spTransform(usa_shp,
@@ -51,6 +42,9 @@ usa_shp <- spTransform(usa_shp,
 
 
 daily_to_monthly <- function(file, mask){
+  x <- c("lubridate", "rgdal", "ncdf4", "raster", "tidyverse", "snowfall")
+  lapply(x, require, character.only = TRUE)
+  
   file_split <- file %>%
     basename %>%
     strsplit(split = "_") %>%
@@ -69,7 +63,7 @@ daily_to_monthly <- function(file, mask){
   dir_sum_95thpct <- file.path(data_var, "sum_days_95thpct")
   
   var_dir <- list(data_pro, data_var, dir_mean, dir_std,
-                  dir_90th, dir_95th, dir_sum_90thpct, dir_sum_95thpct)
+                   dir_sum_90thpct, dir_sum_95thpct)
   
   lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
   
@@ -149,12 +143,7 @@ daily_to_monthly <- function(file, mask){
 daily_files <- list.files(".", pattern = ".nc", full.names = TRUE)
 
 sfInit(parallel = TRUE, cpus = parallel::detectCores())
-sfLibrary(snowfall)
-sfLibrary(tidyverse)
-sfLibrary(raster)
-sfLibrary(ncdf4)
-sfLibrary(rgdal)
-sfLibrary(lubridate)
+sfExportAll()
 
 sfLapply(daily_files, 
          daily_to_monthly,

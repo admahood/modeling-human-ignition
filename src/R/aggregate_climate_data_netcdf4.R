@@ -41,12 +41,15 @@ netcdf_import <- function(file, masks){
   endyear <- substr(file_split[2], start = 5, stop = 8)
   
   # Create dirctories
-  prefix <- file.path("../data")
-  clim_prefix <- file.path(prefix, "climate")
-  var_prefix <- file.path(clim_prefix, var)
+  data_pro <- file.path("../data",  "climate")
+  data_var <- file.path(data_pro, var)
+  dir_mean <- file.path(data_var, "monthly_mean")
+  dir_90th <- file.path(data_var, "monthly_mean_90thpct")
+  dir_95th <- file.path(data_var, "monthly_mean_95thpct")
+
   
   # Check if directory exists for all variable aggregate outputs, if not then create
-  var_dir <- list(prefix, clim_prefix, var_prefix)
+  var_dir <- list(data_pro, data_var, dir_mean, dir_90th, dir_95th)
   lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
   
   start_date <- as.Date(paste(year, "01", "01", sep = "-"))
@@ -71,28 +74,49 @@ netcdf_import <- function(file, masks){
                                      unique(month(date_seq, label = TRUE)),
                                      sep = "_")
   # Mean
-  if(!file.exists(file.path(var_prefix, paste0(out_name, "_mean", ".tif")))) {
+  
     monthly_mean <- mask(raster, masks)
-    writeRaster(monthly_mean, filename = file.path(var_prefix, paste0(out_name, "_mean", ".tif")),
-                format = "GTiff") 
+    for(i in 1979:2016) {
+      if(!file.exists(file.path(dir_mean, paste0(var, "_", i, "_mean",".tif")))) {
+        r_sub <- subset(monthly_mean,  grep(i, names(r))) # subset based on year
+        writeRaster(r_sub, filename = file.path(dir_mean, paste0(var, "_", i, "_mean",".tif")),
+                  format = "GTiff") 
+    } 
     rm(monthly_mean)}
 
   # Monthly mean 90th percentile
-  if(!file.exists(file.path(var_prefix, paste0(out_name, "_90th", ".tif")))){
-    monthly_mean_90thpct <- calc(raster, fun = function(x){ quantile(x, probs = 0.90, na.rm =TRUE)})
-    monthly_mean_90thpct <- mask(monthly_mean_90thpct, masks)
-    writeRaster(monthly_mean_90thpct, filename = file.path(var_prefix, paste0(out_name, "_90th", ".tif")),
+  mean_90thpct <- stack()
+  for (i in 1:nlayers(raster)){
+    if(!file.exists(file.path(dir_90th, paste0(var, "_", i, "_90th",".tif")) )){
+      pctile <- calc(monthly_mean[[i]], 
+                     fun = function(x) raster::quantile(x, probs = 0.90, na.rm = T))
+      mean_90thpct <- mask(mean_90thpct, masks)
+      mean_90thpct <- stack(mean_90thpct, pctile)
+      
+      for(j in 1979:2016) {
+        r_sub <- subset(mean_90thpct,  grep(j, names(r))) # subset based on year
+        writeRaster(r_sub, filename = file.path(dir_90th, paste0(var, "_", j, "_90th",".tif")),
                 format = "GTiff") 
-    rm(monthly_mean_90thpct)}
-  
+      }
+    } rm(list = c("mean_90thpct", "pctile", "mean_90thpct"))
+  }
+    
   # Monthly mean 95th percentile
   if(!file.exists(file.path(var_prefix, paste0(out_name, "_95th", ".tif")))){
-    monthly_mean_95thpct <- calc(raster, fun = function(x){ quantile(x, probs = 0.95, na.rm =TRUE)})
-    monthly_mean_95thpct <- mask(monthly_mean_95thpct, masks)
-    writeRaster(monthly_mean_95thpct, filename = file.path(var_prefix, paste0(out_name, "_95th", ".tif")),
-                format = "GTiff") 
-    rm(monthly_mean_95thpct)}
-}
+    mn_95th <- stack()
+    for (i in 1:nlayers(raster)){
+      pctile <- calc(monthly_mean[[i]], 
+                     fun = function(x) raster::quantile(x, probs = 0.95, na.rm = T))
+      mean_95thpct <- mask(mean_95thpct, masks)
+      mean_95thpct <- stack(mean_95thpct, pctile)
+      
+    for(j in 1979:2016) {
+      r_sub <- subset(mean_95thpct,  grep(j, names(r))) # subset based on year
+      writeRaster(r_sub, filename = file.path(dir_95th, paste0(var, "_", j, "_95th",".tif")),
+                  format = "GTiff") 
+        }
+      } rm(list = c("mn_95th", "pctile", "mean_95thpct"))
+    }
 
 monthly_files <- list.files(climate_prefix, pattern = "nc", 
                           full.names = TRUE, recursive = TRUE)
