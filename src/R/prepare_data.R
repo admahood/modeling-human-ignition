@@ -6,9 +6,10 @@ library(lubridate)
 #source("src/R/get_data.R")
 
 # Prepare all spatial data for analysis
-raw_prefix <- ifelse(Sys.getenv("LOGNAME") == "NateM", file.path("data", "raw"), 
-                     ifelse(Sys.getenv("LOGNAME") == "nami1114", file.path("data", "raw"), 
-                            file.path("../data", "raw")))
+prefix <- ifelse(Sys.getenv("LOGNAME") == "NateM", file.path("data"), 
+                 ifelse(Sys.getenv("LOGNAME") == "nami1114", file.path("data"), 
+                        file.path("../data")))
+raw_prefix <- file.path(prefix, "raw")
 
 # p4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs" # Latlong
 p4string_ed <- "+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"   #http://spatialreference.org/ref/esri/102005/
@@ -49,17 +50,17 @@ all_rds <- rds %>%
   mutate(bool_ards = 1)
 
 st_write(primary_rds,
-         "../data/processed/primary_rds.gpkg",
+         file.path(prefix, "processed/primary_rds.gpkg"),
          driver = "GPKG",
          update=TRUE,
          delete_dsn=TRUE)
 st_write(secondary_rds,
-         "../data/processed/secondary_rds.gpkg",
+         file.path(prefix, "processed/secondary_rds.gpkg"),
          driver = "GPKG",
          update=TRUE,
          delete_dsn=TRUE)
 st_write(all_rds,
-         "../data/processed/all_rds.gpkg",
+         file.path(prefix, "processed/all_rds.gpkg"),
          driver = "GPKG",
          update=TRUE,
          delete_dsn=TRUE)
@@ -72,7 +73,7 @@ rail_rds <- st_read(dsn = file.path(raw_prefix, "tlgdb_2015_a_us_rails",
   mutate(bool_rrds = 1)
 
 st_write(rail_rds,
-         "../data/processed/rail_rds.gpkg",
+         file.path(prefix, "processed/rail_rds.gpkg"),
          driver = "GPKG",
          update=TRUE,
          delete_dsn=TRUE)
@@ -87,7 +88,7 @@ tl <- tl %>%
   filter(st_is(., c("LINESTRING")))
 
 st_write(tl,
-         "../data/processed/power_lines.gpkg",
+         file.path(prefix, "ancillary/power_lines.gpkg"),
          driver = "GPKG")
 
 # Clean the FPA database class
@@ -102,7 +103,8 @@ fpa_fire <- st_read(dsn = file.path(raw_prefix, "fpa-fod", "Data", "FPA_FOD_2017
          FIRE_SIZE_ha = FIRE_SIZE_m2*10000,
          DISCOVERY_DAY = day(DISCOVERY_DATE),
          DISCOVERY_MONTH = month(DISCOVERY_DATE),
-         DISCOVERY_YEAR = FIRE_YEAR) %>%
+         DISCOVERY_YEAR = FIRE_YEAR,
+         fpa_bool = 1) %>%
   filter(IGNITION == "Human") %>%
   st_transform(p4string_ea) %>%
   st_intersection(., usa_shp)
