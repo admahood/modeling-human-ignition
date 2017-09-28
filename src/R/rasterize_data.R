@@ -4,8 +4,6 @@ library(sf)
 library(lubridate)
 library(snowfall)
 
-
-
 # Prepare all spatial data for analysis
 prefix <- ifelse(Sys.getenv("LOGNAME") == "NateM", file.path("data"), 
                      ifelse(Sys.getenv("LOGNAME") == "nami1114", file.path("data"), 
@@ -142,13 +140,4 @@ dis_all_rds <- combine_rst(ards_rst)
 writeRaster(dis_all_rds, filename = paste0(prefix, "/ancillary/", "dis_all_rds", ".tif"),
             format = "GTiff", overwrite=TRUE)
 #rm(list = c("ards_rst", "dis_all_rds"))
-
-
-
-
-
-
-
-
-
 
