@@ -93,7 +93,7 @@ daily_to_monthly <- function(file, mask){
     monthly_mean <- stackApply(raster, month_seq, fun = mean)
     if(var != "ffwi") {
       monthly_mean <- flip(t(monthly_mean), direction = "x") 
-      }
+    }
     names(monthly_mean) <- paste(var, year,
                                  unique(month(date_seq, label = TRUE)),
                                  sep = "_")
