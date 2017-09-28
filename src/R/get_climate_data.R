@@ -1,10 +1,10 @@
-library(tidyverse)
-library(assertthat)
-library(rvest)
-library(httr)
-library(purrr)
 
-prefix <- file.path("../data")
+x <- c("assertthat", "tidyverse", "rvest", "httr", "purrr")
+lapply(x, library, character.only = TRUE, verbose = FALSE)
+
+prefix <-  ifelse(Sys.getenv("LOGNAME") == "NateM", file.path("data"), 
+                  ifelse(Sys.getenv("LOGNAME") == "nami1114", file.path("data"), 
+                         file.path("../data")))
 raw_prefix <- file.path(prefix, "raw")
 climate_prefix <- file.path(raw_prefix, "climate")
 
