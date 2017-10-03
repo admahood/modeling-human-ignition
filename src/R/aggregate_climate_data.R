@@ -18,12 +18,15 @@ var_dir <- list(raw_prefix,
 
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
-for(i in rep(1979:2016)) {
+
+if(!file.exists(file.path("data", "climate", "ffwi", "monthly_mean", "ffwi_2016_mean.tif"))) {
+  for(i in rep(1979:2016)) {
   if (!file.exists(file.path(".", paste0("/ffwi_", i, ".nc")))) {
     loc <- paste0("nimbus.cos.uidaho.edu/abatz/DATA/ffwi_", i, ".nc")
     dest <- file.path(".", paste0("/ffwi_", i, ".nc"))
     download.file(loc, dest)
     assert_that(file.exists(file.path(".", paste0("/ffwi_", i, ".nc"))))
+    }
   }
 }
 
@@ -59,12 +62,13 @@ daily_to_monthly <- function(file, mask){
   data_var <- file.path(data_pro, var)
   dir_mean <- file.path(data_var, "monthly_mean")
   dir_std <- file.path(data_var, "monthly_std")
+  dir_75th <- file.path(data_var, "monthly_mean_75thpct")
   dir_90th <- file.path(data_var, "monthly_mean_90thpct")
   dir_95th <- file.path(data_var, "monthly_mean_95thpct")
   dir_sum_90thpct <- file.path(data_var, "sum_days_90thpct")
   dir_sum_95thpct <- file.path(data_var, "sum_days_95thpct")
   
-  var_dir <- list(data_pro, data_var, dir_mean, dir_std,
+  var_dir <- list(data_pro, data_var, dir_mean, dir_std, dir_75th,
                   dir_90th, dir_95th, dir_sum_90thpct, dir_sum_95thpct)
   
   lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
@@ -115,6 +119,30 @@ daily_to_monthly <- function(file, mask){
     writeRaster(monthly_std, filename = file.path(dir_std, paste0(var, "_", year, "_std",".tif")),
                 format = "GTiff") 
     rm(monthly_std) }
+  
+  # Monthly mean above 75th percentile
+  if(var == "tmmx") {
+    if(!file.exists(file.path(dir_75th, paste0(var, "_", year, "_75th",".tif")))){
+    monthly_mean <- stackApply(raster, month_seq, fun = mean)
+    
+    mean_75thpct <- stack() # create an empty stack
+    for (i in 1:nlayers(monthly_mean)){
+      pctile <- calc(monthly_mean[[i]], 
+                     fun = function(x) raster::quantile(x, probs = 0.75, na.rm = T))
+      mean_75thpct <- stack(mean_75thpct, pctile)
+    }
+    if(var != "ffwi") {
+      mean_75thpct <- flip(t(mean_75thpct), direction = "x") 
+    }
+    names(mean_75thpct) <- paste(var, year,
+                                 unique(month(date_seq, label = TRUE)),
+                                 sep = "_")
+    mean_75thpct <- mask(mean_75thpct, mask)
+    writeRaster(mean_75thpct, filename = file.path(dir_75th, paste0(var, "_", year, "_75th",".tif")),
+                format = "GTiff") 
+    rm(mean_75thpct) 
+      }
+    }
   
   # Monthly mean above 90th percentile
   if(!file.exists(file.path(dir_90th, paste0(var, "_", year, "_90th",".tif")))){
