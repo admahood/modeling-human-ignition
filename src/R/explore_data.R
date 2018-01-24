@@ -1,34 +1,4 @@
-x <- c("raster", "tidyverse", "sf", "rasterVis", "gridExtra")
-lapply(x, library, character.only = TRUE, verbose = FALSE)
 
-raw_prefix <- ifelse(Sys.getenv("LOGNAME") == "NateM", file.path("data", "raw"), 
-                     ifelse(Sys.getenv("LOGNAME") == "nami1114", file.path("data", "raw"), 
-                            file.path("../data", "raw")))
-
-p4string_ed <- "+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"   #http://spatialreference.org/ref/esri/102005/
-p4string_ea <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"   #http://spatialreference.org/ref/sr-org/6903/
-
-# CONUS states
-usa_shp <- st_read(dsn = file.path(raw_prefix, "cb_2016_us_state_20m"),
-                   layer = "cb_2016_us_state_20m") %>%
-  st_transform(p4string_ea) %>%
-  filter(!STUSPS %in% c("HI", "AK", "PR")) %>%
-  mutate(region = as.factor(ifelse(STUSPS %in% c("CO", "WA", "OR", "NV", "CA", "ID", "UT",
-                                                 "WY", "NM", "AZ", "MT"), 1, 2)))
-
-# Import the Level 3 Ecoregions
-ecoreg <- st_read(dsn = file.path(raw_prefix, "us_eco_l3"), 
-                  layer = "us_eco_l3", quiet= TRUE) %>%
-  st_transform(p4string_ea) %>%
-  st_simplify(., preserveTopology = TRUE, dTolerance = 1000)
-
-eco_reg_1 <- ecoreg %>%
-  group_by(NA_L1NAME) %>%
-  summarise()
-
-ecoreg_names <- ecoreg %>%
-  as.data.frame(.) %>%
-  select(NA_L1CODE, NA_L1NAME)
 
 # This will be the raster "template" for all shapefile to raster conversions
 elevation <- raster(file.path(raw_prefix, "metdata_elevationdata", "metdata_elevationdata.nc")) %>%
