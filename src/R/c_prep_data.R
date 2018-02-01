@@ -1,8 +1,11 @@
 source("src/R/a_make_dirs.R")
+source("src/functions/download-data.R")
 
 # Import the Level 3 Ecoregions data
-ecoregions <- st_read(dsn = file.path(raw_prefix, "us_eco_l3"),
-                  layer = "us_eco_l3", quiet= TRUE) %>%
+ecoregions <- load_data(url = "ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l3.zip",
+                        dir = ecoregion_prefix,
+                        layer = "us_eco_l3",
+                        outname = "ecoregion") %>%
   st_simplify(., preserveTopology = TRUE, dTolerance = 1000)  %>%
   mutate(NA_L3NAME = as.character(NA_L3NAME),
          NA_L3NAME = ifelse(NA_L3NAME == 'Chihuahuan Desert',
@@ -10,20 +13,20 @@ ecoregions <- st_read(dsn = file.path(raw_prefix, "us_eco_l3"),
                             NA_L3NAME))
 
 # CONUS states
-usa_shp <- st_read(dsn = file.path(raw_prefix, "cb_2016_us_state_20m"),
-                   layer = "cb_2016_us_state_20m") %>%
+usa_shp <- load_data(url = "https://www2.census.gov/geo/tiger/GENZ2016/shp/cb_2016_us_state_20m.zip",
+                    dir = us_prefix,
+                    layer = "cb_2016_us_state_20m",
+                    outname = "usa") %>%
   st_transform(st_crs(ecoregions)) %>%
-  filter(!STUSPS %in% c("HI", "AK", "PR")) %>%
-  mutate(region = as.factor(ifelse(STUSPS %in% c("CO", "WA", "OR", "NV", "CA", "ID", "UT",
-                                                 "WY", "NM", "AZ", "MT"), 1, 2)))
+  filter(!STUSPS %in% c("HI", "AK", "PR"))
 
 # Read fire data ----------------------
-fpa <- st_read(dsn = file.path(raw_prefix, "fpa-fod", "Data", "FPA_FOD_20170508.gdb"),
+fpa <- st_read(dsn = file.path(fpa_prefix, "Data", "FPA_FOD_20170508.gdb"),
                     layer = "Fires", quiet= FALSE) %>%
   st_transform(st_crs(ecoregions)) %>%
   st_intersection(., usa_shp)
 fpa_clean <- fpa %>%
-  filter(FIRE_SIZE >= 1) %>%
+  filter(FIRE_SIZE >= 1 & STAT_CAUSE_DESCR != "HUMAN") %>%
   dplyr::select(FPA_ID, LATITUDE, LONGITUDE, ICS_209_INCIDENT_NUMBER, ICS_209_NAME, MTBS_ID, MTBS_FIRE_NAME,
                 FIRE_YEAR, DISCOVERY_DATE, DISCOVERY_DOY, STAT_CAUSE_DESCR, FIRE_SIZE, STATE)  %>%
   mutate(cause = ifelse(STAT_CAUSE_DESCR == "Lightning", "Lightning", "Human"),
@@ -48,20 +51,18 @@ ov <- read_rds("ov.rds")
 fpa_clean <- fpa_clean %>%
   mutate(NA_L3NAME = ecoregions$NA_L3NAME[ov]) %>%
   filter(!is.na(NA_L3NAME))
-  #st_join(., fpa_clean, join = st_contains) 
 
 unique_er_yms <- expand.grid(
   NA_L3NAME = unique(ecoregions$NA_L3NAME),
   year = unique(fpa_clean$year),
-  month = unique(fpa_clean$month)
-) %>%
+  month = unique(fpa_clean$month)) %>%
   as_tibble
 
 # count the number of fires in each ecoregion in each month
 count_df <- fpa_clean %>%
   tbl_df %>%
   dplyr::select(-Shape) %>%
-  group_by(NA_L3NAME, year, month) %>%
+  group_by(NA_L3NAME, cause, year, month) %>%
   summarize(n_fire = n()) %>%
   ungroup %>%
   full_join(unique_er_yms) %>%
