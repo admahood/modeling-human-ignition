@@ -1,19 +1,18 @@
 library(raster)
+library(ncdf4)
 library(tidyverse)
 library(sf)
 library(lubridate)
 library(snowfall)
 
 # Prepare all spatial data for analysis
-prefix <- ifelse(Sys.getenv("LOGNAME") == "NateM", file.path("data"), 
-                     ifelse(Sys.getenv("LOGNAME") == "nami1114", file.path("data"), 
-                            file.path("../data")))
+prefix <- "data"
 raw_prefix <- file.path(prefix, "raw")
 
-primary_rds <- st_read(file.path(prefix, "ancillary/primary_rds.gpkg"))
-secondary_rds <- st_read(file.path(prefix, "ancillary/secondary_rds.gpkg"))
-tl <- st_read(file.path(prefix, "ancillary/tranmission_lns.gpkg"))
-rail_rds <- st_read(file.path(prefix, "data/ancillary/rail_rds.gpkg")) 
+primary_rds <- st_read(file.path(anthro_dir, "primary_rds.gpkg"))
+secondary_rds <- st_read(file.path(anthro_dir, "secondary_rds.gpkg"))
+tl <- st_read(file.path(anthro_dir, "tranmission_lns.gpkg"))
+rail_rds <- st_read(file.path(anthro_dir, "rail_rds.gpkg")) 
 
 psrds <- primary_rds %>%
   select(-starts_with("bool"))
@@ -49,17 +48,17 @@ elevation.disaggregate <- calc(elevation.disaggregate, fun = function(x){x[x < 0
 state <- rasterize(as(usa_shp, "Spatial"), elevation, "GEOID")
 ecoregion <- rasterize(as(eco_reg, "Spatial"), elevation, "US_L3CODE")
 
-fpa_counts <- rasterize(as(fpa_fire, "Spatial"), elevation, "fpa_bool", fun = "count") %>%
-  crop(as(usa_shp, "Spatial")) %>%
-  mask(as(usa_shp, "Spatial"))
-writeRaster(fpa_counts, filename = paste0(prefix,  "/ancillary/", "fpa_counts", ".tif"),
-            format = "GTiff")
-
-fpa_density <- fpa_counts/4000 # Equiv to the fire counts / area of a 4km pixel
-writeRaster(fpa_density, filename = paste0(prefix,  "/ancillary/", "fpa_density", ".tif"),
-            format = "GTiff", overwrite=TRUE)
-
-rm(fpa_fire)
+# fpa_counts <- rasterize(as(fpa_fire, "Spatial"), elevation, "fpa_bool", fun = "count") %>%
+#   crop(as(usa_shp, "Spatial")) %>%
+#   mask(as(usa_shp, "Spatial"))
+# writeRaster(fpa_counts, filename = file.path(fire_dir, paste0("fpa_counts", ".tif")),
+#             format = "GTiff")
+# 
+# fpa_density <- fpa_counts/4000 # Equiv to the fire counts / area of a 4km pixel
+# writeRaster(fpa_density, filename = file.path(fire_dir, paste0("fpa_density", ".tif")),
+#             format = "GTiff", overwrite=TRUE)
+# 
+# rm(fpa_fire)
 
 ncor <- parallel::detectCores()
 
@@ -97,7 +96,7 @@ sfExport(list = c("ncor", "usa_shp", "tl", "elevation"))
 tl_rst <- sfLapply(1:ncor, shp_rst, y = tl, lvl = "bool_tl", j = elevation)
 sfStop()
 dis_transmission_lines <- combine_rst(tl_rst) 
-writeRaster(dis_transmission_lines, filename = paste0(prefix, "/ancillary/", "dis_transmission_lines", ".tif"),
+writeRaster(dis_transmission_lines, filename = file.path(anthro_dir, paste0("dis_transmission_lines", ".tif")),
             format = "GTiff", overwrite=TRUE)
 #rm(list = c("tl_rst", "dis_transmission_lines"))
 
@@ -107,7 +106,7 @@ sfExport(list = c("ncor", "usa_shp", "rail_rds", "elevation"))
 rail_rst <- sfLapply(1:ncor, shp_rst, y = rail_rds, lvl = "bool_rrds", j = elevation)
 sfStop()
 dis_railroads <- combine_rst(rail_rst)
-writeRaster(dis_railroads, filename = paste0(prefix, "/ancillary/", "dis_railroads", ".tif"),
+writeRaster(dis_railroads, filename = file.path(anthro_dir, paste0("dis_railroads", ".tif")),
             format = "GTiff", overwrite=TRUE)
 #rm(list = c("rail_rst", "dis_railroads"))
 
@@ -117,7 +116,7 @@ sfExport(list = c("ncor", "usa_shp", "primary_rds", "elevation"))
 prds_rst <- sfLapply(1:ncor, shp_rst, y = primary_rds, lvl = "bool_prds", j = elevation)
 sfStop()
 dis_primary_rds <- combine_rst(prds_rst)
-writeRaster(dis_primary_rds, filename = paste0(prefix, "/ancillary/", "dis_primary_rds", ".tif"),
+writeRaster(dis_primary_rds, filename = file.path(anthro_dir, paste0("dis_primary_rds", ".tif")),
             format = "GTiff", overwrite=TRUE)
 #rm(list = c("prds_rst", "dis_primary_rds"))
 
@@ -127,7 +126,7 @@ sfExport(list = c("ncor", "usa_shp", "secondary_rds", "elevation"))
 srds_rst <- sfLapply(1:ncor, shp_rst, y = secondary_rds, lvl = "bool_srds", j = elevation)
 sfStop()
 dis_secondary_rds <- combine_rst(srds_rst)
-writeRaster(dis_secondary_rds, filename = paste0(prefix, "/ancillary/", "dis_secondary_rds", ".tif"),
+writeRaster(dis_secondary_rds, filename = file.path(anthro_dir, paste0("dis_secondary_rds", ".tif")),
             format = "GTiff", overwrite=TRUE)
 #rm(list = c("srds_rst", "dis_secondary_rds"))
 
@@ -137,7 +136,7 @@ sfExport(list = c("ncor", "usa_shp", "all_rds", "elevation"))
 ards_rst <- sfLapply(1:ncor, shp_rst, y = all_rds, lvl = "bool_ards", j = elevation)
 sfStop()
 dis_all_rds <- combine_rst(ards_rst)
-writeRaster(dis_all_rds, filename = paste0(prefix, "/ancillary/", "dis_all_rds", ".tif"),
+writeRaster(dis_all_rds, filename = file.path(anthro_dir, paste0("dis_all_rds", ".tif")),
             format = "GTiff", overwrite=TRUE)
 #rm(list = c("ards_rst", "dis_all_rds"))
 
