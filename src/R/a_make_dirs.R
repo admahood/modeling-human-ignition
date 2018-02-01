@@ -17,12 +17,15 @@ elev_prefix <- file.path(raw_prefix, 'metdata_elevationdata')
 tl_prefix <- file.path(raw_prefix, 'Electric_Power_Transmission_Lines')
 
 climate_prefix <- file.path(raw_prefix, "climate")
-ov_prefix <- file.path(raw_prefix, 'ov')
+ancillary_dir <- file.path(prefix, "ancillary")
+anthro_dir <- file.path(ancillary_dir, "anthro")
+
+fire_dir <- file.path(ancillary_dir, "fire")
 
 # Check if directory exists for all variable aggregate outputs, if not then create
 var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix,
                 fpa_prefix, rails_prefix, pd_prefix, iclus_prefix, climate_prefix,
-                nlcd_prefix, elev_prefix, tl_prefix, ov_prefix)
+                nlcd_prefix, elev_prefix, tl_prefix, ancillary_dir, fire_dir, anthro_dir)
 
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
