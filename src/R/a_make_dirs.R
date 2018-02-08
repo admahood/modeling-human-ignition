@@ -24,12 +24,11 @@ pd_prefix <- file.path(raw_prefix, "county_pop")
 iclus_prefix <- file.path(raw_prefix, 'housing_den')
 elev_prefix <- file.path(raw_prefix, 'metdata_elevationdata')
 tl_prefix <- file.path(raw_prefix, 'Electric_Power_Transmission_Lines')
-
 climate_prefix <- file.path(raw_prefix, "climate")
-ancillary_dir <- file.path(prefix, "ancillary")
-anthro_dir <- file.path(ancillary_dir, "anthro")
 
 fire_dir <- file.path(ancillary_dir, "fire")
+ancillary_dir <- file.path(prefix, "ancillary")
+anthro_dir <- file.path(ancillary_dir, "anthro")
 
 # Check if directory exists for all variable aggregate outputs, if not then create
 var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix,
