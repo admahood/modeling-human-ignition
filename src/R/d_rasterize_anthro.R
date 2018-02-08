@@ -5,7 +5,7 @@ fishnet_4k <- st_make_grid(usa_shp, cellsize = 4000, what = 'polygons') %>%
   st_sf('geometry' = ., data.frame('fishid4k' = 1:length(.))) %>%
   st_intersection(., st_union(usa_shp))
 
-ras_mask <- raster(as(fishnet_2k, "Spatial"), res = 4000)
+ras_mask <- raster(as(fishnet_4k, "Spatial"), res = 4000)
 
 # Calculate distance to power lines
 if (file.exists(file.path(anthro_dir, "dis_transmission_lines.tif"))) {

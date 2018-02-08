@@ -1,5 +1,5 @@
 
-x <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest", "caret",
+x <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest",
        "httr", "purrr", "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall")
 lapply(x, library, character.only = TRUE, verbose = FALSE)
 
@@ -26,8 +26,8 @@ elev_prefix <- file.path(raw_prefix, 'metdata_elevationdata')
 tl_prefix <- file.path(raw_prefix, 'Electric_Power_Transmission_Lines')
 climate_prefix <- file.path(raw_prefix, "climate")
 
-fire_dir <- file.path(ancillary_dir, "fire")
 ancillary_dir <- file.path(prefix, "ancillary")
+fire_dir <- file.path(ancillary_dir, "fire")
 anthro_dir <- file.path(ancillary_dir, "anthro")
 
 # Check if directory exists for all variable aggregate outputs, if not then create
