@@ -34,6 +34,7 @@ fpa <- st_read(dsn = file.path(fpa_prefix, "Data", "FPA_FOD_20170508.gdb"),
   st_transform(st_crs(ecoregions)) %>%
   st_intersection(., usa_shp)
 }
+
 if (!exists("fpa_clean")) {
   fpa_clean <- fpa %>%
   filter(FIRE_SIZE >= 1 & STAT_CAUSE_DESCR != "HUMAN") %>%
@@ -49,14 +50,13 @@ if (!exists("fpa_clean")) {
   st_join(., fishnet_4k, join = st_intersects)
 }
 
-# count the number of fires in each ecoregion in each month
+# count the number of human and lightning fires in each pixel in each month for each year
 count_df <- fpa_clean %>%
   tbl_df %>%
   dplyr::select(-Shape) %>%
   group_by(fishid4k, cause, year, month) %>%
   summarize(n_fire = n()) %>%
   ungroup %>%
-  full_join(unique_er_yms) %>%
   mutate(n_fire = ifelse(is.na(n_fire), 0, n_fire),
          ym = as.yearmon(paste(year, sprintf("%02d", month), sep = "-"))) %>%
   arrange(ym) 
