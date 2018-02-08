@@ -1,18 +1,17 @@
-source("src/R/a_make_dirs.R")
 source("src/functions/download-data.R")
 
-# Import the Level 3 Ecoregions data
+# Download and import the Level 3 Ecoregions data
+# Download will only happen once as long as the file exists
 ecoregions <- load_data(url = "ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l3.zip",
-                        dir = ecoregion_prefix,
-                        layer = "us_eco_l3",
-                        outname = "ecoregion") %>%
+                        dir = ecoregion_prefix, layer = "us_eco_l3", outname = "ecoregion") %>%
   st_simplify(., preserveTopology = TRUE, dTolerance = 1000)  %>%
   mutate(NA_L3NAME = as.character(NA_L3NAME),
          NA_L3NAME = ifelse(NA_L3NAME == 'Chihuahuan Desert',
                             'Chihuahuan Deserts',
                             NA_L3NAME))
 
-# CONUS states
+# Download and import CONUS states
+# Download will only happen once as long as the file exists
 usa_shp <- load_data(url = "https://www2.census.gov/geo/tiger/GENZ2016/shp/cb_2016_us_state_20m.zip",
                     dir = us_prefix,
                     layer = "cb_2016_us_state_20m",
@@ -20,12 +19,23 @@ usa_shp <- load_data(url = "https://www2.census.gov/geo/tiger/GENZ2016/shp/cb_20
   st_transform(st_crs(ecoregions)) %>%
   filter(!STUSPS %in% c("HI", "AK", "PR"))
 
-# Read fire data ----------------------
+# Create raster mask
+# 4k Fishnet
+if (!exists("fishnet_4k")) {
+  fishnet_4k <- st_make_grid(usa_shp, cellsize = 4000, what = 'polygons') %>%
+  st_sf('geometry' = ., data.frame('fishid4k' = 1:length(.))) %>%
+  st_intersection(., st_union(usa_shp))
+}
+
+# Load and process FPA-FOD wildfire iginition data
+if (!exists("fpa")) {
 fpa <- st_read(dsn = file.path(fpa_prefix, "Data", "FPA_FOD_20170508.gdb"),
                     layer = "Fires", quiet= FALSE) %>%
   st_transform(st_crs(ecoregions)) %>%
   st_intersection(., usa_shp)
-fpa_clean <- fpa %>%
+}
+if (!exists("fpa_clean")) {
+  fpa_clean <- fpa %>%
   filter(FIRE_SIZE >= 1 & STAT_CAUSE_DESCR != "HUMAN") %>%
   dplyr::select(FPA_ID, LATITUDE, LONGITUDE, ICS_209_INCIDENT_NUMBER, ICS_209_NAME, MTBS_ID, MTBS_FIRE_NAME,
                 FIRE_YEAR, DISCOVERY_DATE, DISCOVERY_DOY, STAT_CAUSE_DESCR, FIRE_SIZE, STATE)  %>%
@@ -35,34 +45,15 @@ fpa_clean <- fpa %>%
          month = month(DISCOVERY_DATE),
          year = FIRE_YEAR,
          ym = as.yearmon(paste(year, sprintf("%02d", month),
-                               sep = "-")))
-
-# match each ignition to an ecoregion file.path(ov, "ov.rds")
-if (!file.exists("ov.rds")) {
-  st_over <- function(x, y) {
-    sapply(st_intersects(x,y),
-           function(z) if (length(z)==0) NA_integer_ else z[1])
-  }
-  ov <- st_over(fpa_clean, ecoregions)
-  write_rds(ov, "ov.rds")
+                               sep = "-"))) %>%
+  st_join(., fishnet_4k, join = st_intersects)
 }
-ov <- read_rds("ov.rds")
-
-fpa_clean <- fpa_clean %>%
-  mutate(NA_L3NAME = ecoregions$NA_L3NAME[ov]) %>%
-  filter(!is.na(NA_L3NAME))
-
-unique_er_yms <- expand.grid(
-  NA_L3NAME = unique(ecoregions$NA_L3NAME),
-  year = unique(fpa_clean$year),
-  month = unique(fpa_clean$month)) %>%
-  as_tibble
 
 # count the number of fires in each ecoregion in each month
 count_df <- fpa_clean %>%
   tbl_df %>%
   dplyr::select(-Shape) %>%
-  group_by(NA_L3NAME, cause, year, month) %>%
+  group_by(fishid4k, cause, year, month) %>%
   summarize(n_fire = n()) %>%
   ungroup %>%
   full_join(unique_er_yms) %>%
@@ -70,12 +61,13 @@ count_df <- fpa_clean %>%
          ym = as.yearmon(paste(year, sprintf("%02d", month), sep = "-"))) %>%
   arrange(ym) 
 
-assert_that(0 == sum(is.na(count_df$NA_L3NAME)))
+assert_that(0 == sum(is.na(count_df$fishid4k)))
 assert_that(sum(count_df$n_fire) == nrow(fpa_clean))
-assert_that(all(ecoregions$NA_L3NAME %in% count_df$NA_L3NAME))
+assert_that(all(fishnet_4k$fishid4k %in% count_df$fishid4k))
 
+#### This DOESNT WORK AS OF 2/7/2018 - still compiling the summaries table!#################
 # load covariate data and link to count data frame
-ecoregion_summaries <- read_csv('https://s3-us-west-2.amazonaws.com/earthlab-gridmet/ecoregion_summaries.csv',
+ecoregion_summaries <- read_csv(<add url here>,
                                 col_types = cols(
                                   NA_L3NAME = col_character(),
                                   variable = col_character(),
@@ -89,3 +81,101 @@ ecoregion_summaries <- read_csv('https://s3-us-west-2.amazonaws.com/earthlab-gri
                                sprintf("%02d", month),
                                sep = "-"))) %>%
   spread(variable, wmean)
+
+# Import ancillary data
+# Roads
+
+if (!exists("rds")) {
+  rds <- 
+    st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
+}
+
+# Primary Roads
+if (!exists("primary_rds")) {
+  
+  primary_rds <- rds %>%
+    filter(MTFCC == "S1100") %>%
+    st_transform(p4string_ea) %>%
+    st_intersection(., usa_shp) %>%
+    mutate(bool_prds = 1)
+  
+  if (!file.exists(file.path(anthro_dir, "primary_rds.gpkg"))) {
+    st_write(primary_rds,
+           file.path(anthro_dir, "primary_rds.gpkg"),
+           driver = "GPKG")
+    }
+  }
+
+# Secondary roads
+if (!exists("secondary_rds")) {
+  secondary_rds <- rds %>%
+    filter(MTFCC == "S1200") %>%
+    st_transform(p4string_ea) %>%
+    st_intersection(., usa_shp) %>%
+    mutate(bool_srds = 1)
+  
+  if (!file.exists(file.path(anthro_dir, "secondary_rds.gpkg"))) {
+    st_write(secondary_rds,
+             file.path(anthro_dir, "secondary_rds.gpkg"),
+             driver = "GPKG")
+    }
+  }
+
+# All major roads
+if (!exists("all_rds")) {
+  all_rds <- rds %>%
+    filter(MTFCC == "S1200" | MTFCC == "S1200") %>%
+    st_transform(p4string_ea) %>%
+    st_intersection(., usa_shp) %>%
+    mutate(bool_ards = 1)
+  
+  if (!file.exists(file.path(anthro_dir, "all_rds.gpkg"))) {
+    st_write(all_rds,
+         file.path(anthro_dir, "all_rds.gpkg"),
+         driver = "GPKG")
+  }
+}
+
+
+# Railrods
+if (!exists("rail_rds")) {
+  rail_rds <- st_read(dsn = file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb'), layer = 'Rails') %>%
+    st_transform(p4string_ea) %>%
+    st_intersection(., usa_shp) %>%
+    mutate(bool_rrds = 1)
+  
+  if (!file.exists(file.path(anthro_dir, "rail_rds.gpkg"))) {
+    
+    st_write(rail_rds,
+         file.path(anthro_dir, "rail_rds.gpkg"),
+         driver = "GPKG",
+         update=TRUE,
+         delete_dsn=TRUE)
+  }
+}
+
+
+# Power transmission lines
+if (!exists("tl")) {
+  
+  tl <- st_read(dsn = file.path(tl_prefix, 'Electric_Power_Transmission_Lines.shp')) %>%
+    st_transform(p4string_ea) %>%
+    st_intersection(., usa_shp) %>%
+    mutate(bool_tl = 1) %>%
+    filter(st_is(., c("LINESTRING")))
+  
+  if (!file.exists(file.path(anthro_dir, "power_lines.gpkg"))) {
+    st_write(tl,
+         file.path(anthro_dir, "power_lines.gpkg"),
+         driver = "GPKG")
+  }
+}
+
+
+
+
+
+
+
+
+
