@@ -32,12 +32,3 @@ if (!file.exists(def_nc)) {
   download.file(loc, dest)
   assert_that(file.exists(def_nc))
 }
-
-
-
-
-
-
-
-
-
