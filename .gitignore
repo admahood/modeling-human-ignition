@@ -47,5 +47,6 @@ vignettes/*.pdf
 
 # General folders and files
 data/
+results/
 kitematic/
 ov.rds
