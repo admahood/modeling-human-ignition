@@ -1,4 +1,3 @@
-source("src/R/a_make_dirs.R")
 
 # Download the FPA-FOD data
 
@@ -80,7 +79,7 @@ if (!file.exists(nlcd_img)) {
   dest <- paste0(raw_prefix, ".zip")
   download.file(loc, dest)
   decompress_file("../data/", "raw.zip", .file_cache = FALSE)
-  file.rename("../data/nlcd_2011_landcover_2011_edition_2014_10_10",  
+  file.rename("../data/nlcd_2011_landcover_2011_edition_2014_10_10",
               to = "../data/raw/nlcd_2011_landcover_2011_edition_2014_10_10")
   unlink(dest)
   assert_that(file.exists(nlcd_img))
@@ -97,4 +96,3 @@ if (!file.exists(roads_shp)) {
   unlink(dest)
   assert_that(file.exists(roads_shp))
 }
-
