@@ -1,6 +1,4 @@
-library(raster)
-library(snowfall)
-library(rgdal)
+source("src/R/a_make_dirs.R")
 source("src/functions/download-data.R")
 
 if (!exists("fishnet_4k")) {
