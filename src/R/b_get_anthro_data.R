@@ -71,7 +71,13 @@ if (!file.exists(elev_nc)) {
 
 
 #Download the NLCD 2011
-source("src/R/decompress_function.R")
+source("src/functions/decompress_function.R")
+
+# Adam says:
+# I had some problems with this decompress function working
+# This was the error message:
+# Error in setwd(directory) : cannot change working directory
+# Ijust unzipped manually and moved on....
 
 nlcd_img <- file.path(nlcd_prefix, 'nlcd_2011_landcover_2011_edition_2014_10_10.img')
 if (!file.exists(nlcd_img)) {
