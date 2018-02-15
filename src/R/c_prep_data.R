@@ -22,6 +22,7 @@ usa_shp <- load_data(url = "https://www2.census.gov/geo/tiger/GENZ2016/shp/cb_20
 # Create raster mask
 # 4k Fishnet
 if (!exists("fishnet_4k")) {
+ # if (!file.exists(FLINEMAE)) do an if else, make fishnet dir... ancillary do this for fpa too
   fishnet_4k <- st_make_grid(usa_shp, cellsize = 4000, what = 'polygons') %>%
   st_sf('geometry' = ., data.frame('fishid4k' = 1:length(.))) %>%
   st_intersection(., st_union(usa_shp))
@@ -133,7 +134,7 @@ if (!exists("all_rds")) {
     st_write(all_rds,
          file.path(anthro_dir, "all_rds.gpkg"),
          driver = "GPKG")
-  }
+  } 
 }
 
 
@@ -173,8 +174,8 @@ if (!exists("tl")) {
 
 
 
-
-
+## terrain data
+## see how max interpolated housing density
 
 
 
