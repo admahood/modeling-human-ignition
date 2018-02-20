@@ -1,3 +1,4 @@
+s3_raw_prefix <- 's3://earthlab-modeling-human-ignitions/raw/'
 
 # Download the FPA-FOD data
 
@@ -11,6 +12,7 @@ if (!file.exists(fpa_gdb)) {
   unzip(dest, exdir = fpa_prefix)
   unlink(dest)
   assert_that(file.exists(fpa_gdb))
+  system(paste0('aws s3 cp ',s3_raw_prefix, "fpa-fod/",  "FPA_FOD_20170508.gdb"))
 }
 
 #Download the railrods
@@ -23,6 +25,7 @@ if (!file.exists(rails_shp)) {
   unzip(dest, exdir = rails_prefix)
   unlink(dest)
   assert_that(file.exists(rails_shp))
+  system(paste0('aws s3 cp ',s3_raw_prefix, "tlgdb_2015_a_us_rails/",  "tlgdb_2015_a_us_rails.gdb"))
 }
 
 #Download the tramission lines
@@ -35,6 +38,7 @@ if (!file.exists(tl_shp)) {
   unzip(dest, exdir = tl_prefix)
   unlink(dest)
   assert_that(file.exists(tl_shp))
+  #system(paste0('aws s3 cp ',s3_raw_prefix, "Electric_Power_Transmission_Lines/",  "tlgdb_2015_a_us_rails.gdb"))
 }
 
 # Download population density by county from 2010-2100
@@ -47,6 +51,7 @@ if (!file.exists(pd_shp)) {
   unzip(dest, exdir = raw_prefix)
   unlink(dest)
   assert_that(file.exists(pd_shp))
+  system(paste0('aws s3 cp ',s3_raw_prefix, "housing_den/",  "hd_iclus_bc.nc"))
 }
 
 # Download housing density baseline scenario
