@@ -1,5 +1,4 @@
-decompress_file <- function(#directory, 
-                            file, .file_cache = FALSE) {
+decompress_file <- function(file, exdir, .file_cache = FALSE) {
   
   if (.file_cache == TRUE) {
     print("decompression skipped")
@@ -14,7 +13,9 @@ decompress_file <- function(#directory,
     decompression <-
       system2("unzip",
               args = c("-o", # include override flag
-                       file),
+                       file,
+                       "-d",
+                       exdir),
               stdout = TRUE)
     
     # uncomment to delete archive once decompressed

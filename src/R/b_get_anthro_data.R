@@ -13,8 +13,9 @@ if (!file.exists(fpa_gdb)) {
   unlink(dest)
   assert_that(file.exists(fpa_gdb))
   system(paste0('aws s3 cp ', #command
-                fpa_gdb, " ", #source file
-                s3_raw_prefix, "fpa-fod/",  "FPA_FOD_20170508.gdb")) #destination
+                fpa_gdb, "/ ", #source file
+                s3_raw_prefix, "fpa-fod/",  "FPA_FOD_20170508.gdb/",
+                " --recursive")) #destination
 }
 
 #Download the railrods
@@ -105,10 +106,9 @@ if (!file.exists(nlcd_img)) {
   loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2011&FNAME=nlcd_2011_landcover_2011_edition_2014_10_10.zip"
   dest <- paste0(raw_prefix, ".zip")
   download.file(loc, dest)
-  decompress_file(#"../data/", 
-                  "data/raw.zip", .file_cache = FALSE)
-  file.rename("../nlcd_2011_landcover_2011_edition_2014_10_10",
-              to = "../data/raw/nlcd_2011_landcover_2011_edition_2014_10_10")
+  decompress_file("data/raw.zip", #downloaded file
+                  "data/raw/", #destination directory
+                  .file_cache = FALSE)
   unlink(dest)
   assert_that(file.exists(nlcd_img))
   system(paste0("aws s3 cp ",
