@@ -1,4 +1,5 @@
-decompress_file <- function(directory, file, .file_cache = FALSE) {
+decompress_file <- function(#directory, 
+                            file, .file_cache = FALSE) {
   
   if (.file_cache == TRUE) {
     print("decompression skipped")
@@ -6,8 +7,8 @@ decompress_file <- function(directory, file, .file_cache = FALSE) {
     
     # Set working directory for decompression
     # simplifies unzip directory location behavior
-    wd <- getwd()
-    setwd(directory)
+    # wd <- getwd()
+    # setwd(directory)
     
     # Run decompression
     decompression <-
@@ -20,7 +21,7 @@ decompress_file <- function(directory, file, .file_cache = FALSE) {
     # file.remove(file) 
     
     # Reset working directory
-    setwd(wd); rm(wd)
+    # setwd(wd); rm(wd)
     
     # Test for success criteria
     # change the search depending on 
