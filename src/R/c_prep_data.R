@@ -1,5 +1,10 @@
 source("src/functions/download-data.R")
 
+s3_anc_prefix <- 's3://earthlab-modeling-human-ignitions/ancillary/'
+fishnet_path <- "data/ancillary/fishnet"
+fpa_clean_path <- "data/processed/"
+s3_proc_prefix <- 's3://earthlab-modeling-human-ignitions/processed/'
+
 # Download and import the Level 3 Ecoregions data
 # Download will only happen once as long as the file exists
 if (!exists("ecoregions")){

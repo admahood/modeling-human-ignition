@@ -30,6 +30,7 @@ tl_prefix <- file.path(raw_prefix, 'Electric_Power_Transmission_Lines')
 climate_prefix <- file.path(raw_prefix, "climate")
 
 ancillary_dir <- file.path(prefix, "ancillary")
+
 processed_dir <- file.path(prefix, 'processed')
 anthro_dir <- file.path(prefix, "anthro")
 

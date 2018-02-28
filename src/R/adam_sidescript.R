@@ -53,24 +53,25 @@ fishnet_4k <- st_make_grid(usa_shp, cellsize = 4000, what = 'polygons') %>%
   st_sf('geometry' = ., data.frame('fishid4k' = 1:length(.))) %>%
   st_intersection(., st_union(usa_shp))
 
-ras_mask <- raster(as(fishnet_2k, "Spatial"), res = 4000)
+ras_mask <- raster(as(fishnet_4k, "Spatial"), res = 4000)
 
 
 
 plot(rLength); plot(sl, add=T)
 
-# road density script from last year
-listofshps=Sys.glob("*.shp")
-listofshps=substr(x=listofshps, start=1, stop=19)
-registerDoParallel(2)
-
-foreach(i=1:3108) %do% {
-  stepone=readOGR(".", listofshps[i])
-  steptwo=as.psp(tl)
-  stepthree=pixellate(steptwo, eps=1000)
-  stepfour=raster(stepthree)
-  stepfive=stepfour/1000
-  writeRaster(stepfive, filename=paste(listofshps[i],".tif"), format="GTiff", overwrite=T)
-}
-
-listoftifs=Sys.glob("*.tif")
+# delete
+# # road density script from last year
+# listofshps=Sys.glob("*.shp")
+# listofshps=substr(x=listofshps, start=1, stop=19)
+# registerDoParallel(2)
+# 
+# foreach(i=1:3108) %do% {
+#   stepone=readOGR(".", listofshps[i])
+#   steptwo=as.psp(tl)
+#   stepthree=pixellate(steptwo, eps=1000)
+#   stepfour=raster(stepthree)
+#   stepfive=stepfour/1000
+#   writeRaster(stepfive, filename=paste(listofshps[i],".tif"), format="GTiff", overwrite=T)
+# }
+# 
+# listoftifs=Sys.glob("*.tif")
