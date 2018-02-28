@@ -1,0 +1,21 @@
+#### Modeling human-started wildfire across the conterminous US
+
+##### Choosing a spatial resolution
+
+There is a tradeoff between high spatial resolution and being able to actually do the project.  The dream was to initially preform the analysis at a 4k scale, which would coincide with the native GridMet data. This resolution was thought to also be able to capture the fine scale anthropogenic variability. When trying to extract those data, I had a 40 core parallel job initiated and after 2 weeks it was still working.  I was forced to kill the job and reevaluate the spatial resolution.
+
+The number of cells at different resolutions are as follow.
+
+Pixel:
+- At 4k resolution there are 494316 pixels equating to 136,431,216 pixels per climate time series
+- At 8k resolution there are 124679 pixels equating to 34,411,404 pixels per climate time series
+- At 10k resolution there are 79854 pixels equating to 22,039,704 pixels per climate time series
+- At 12k resolution there are 55898 pixels equating to 15,427,848 pixels per climate time series
+- At 25k resolution there are 13096 pixels equating to 36,14,496 pixels per climate time series
+
+Hexagonal:
+- At 4k resolution there are 565,146 hexagons equating to 155,980,296 hexagons per climate time series
+- At 8k resolution there are 141,284 hexagons equating to 38,994,384 hexagons per climate time series
+- At 10k resolution there are 90,423 hexagons equating to 24,956,748 hexagons per climate time series
+- At 12k resolution there are 62,813 hexagons equating to 17,336,388 hexagons per climate time series
+- At 25k resolution there are 14,456 hexagons equating to 39,89,856 hexagons per climate time series
