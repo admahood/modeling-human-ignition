@@ -32,11 +32,17 @@ climate_prefix <- file.path(raw_prefix, "climate")
 ancillary_dir <- file.path(prefix, "ancillary")
 fire_dir <- file.path(ancillary_dir, "fire")
 anthro_dir <- file.path(ancillary_dir, "anthro")
+fishnet_path <- file.path(ancillary_dir, "fishnet")
+processed_dir <- file.path(prefix, 'processed')
+
+s3_anc_prefix <- 's3://earthlab-modeling-human-ignitions/ancillary/'
+s3_proc_prefix <- 's3://earthlab-modeling-human-ignitions/processed/'
 
 # Check if directory exists for all variable aggregate outputs, if not then create
 var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix,
                 fpa_prefix, rails_prefix, pd_prefix, iclus_prefix, climate_prefix,
-                nlcd_prefix, elev_prefix, tl_prefix, ancillary_dir, fire_dir, anthro_dir)
+                nlcd_prefix, elev_prefix, tl_prefix, ancillary_dir, fire_dir, anthro_dir,
+                fishnet_path, processed_dir)
 
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
 
