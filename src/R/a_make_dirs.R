@@ -4,6 +4,7 @@ x <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.tab
 lapply(x, library, character.only = TRUE, verbose = FALSE)
 
 source('src/functions/helper_functions.R')
+source("src/functions/download-data.R")
 
 # Projections
 p4string_ed <- "+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"   #http://spatialreference.org/ref/esri/102005/
@@ -13,9 +14,8 @@ ncor <- parallel::detectCores()
 
 prefix <- ("data")
 raw_prefix <- file.path(prefix, "raw")
-processed <- file.path(prefix, "processed")
-us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
 
+us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
 ecoregion_prefix <- file.path(raw_prefix, "us_eco_l3")
 fpa_prefix <- file.path(raw_prefix, "fpa-fod")
 roads_prefix <- file.path(raw_prefix, "tlgdb_2015_a_us_roads")
@@ -32,7 +32,6 @@ ancillary_dir <- file.path(prefix, "ancillary")
 processed_dir <- file.path(prefix, 'processed')
 anthro_dir <- file.path(prefix, "anthro")
 
-fire_dir <- file.path(processed_dir, "fire")
 fishnet_path <- file.path(ancillary_dir, "fishnet")
 
 s3_anc_prefix <- 's3://earthlab-modeling-human-ignitions/ancillary/'
