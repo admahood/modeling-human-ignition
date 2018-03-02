@@ -25,24 +25,25 @@ vars <- c('aet', 'def', 'ffwi', 'fm100', 'pdsi', 'pr', 'tmmx', 'vpd', 'vs')
 for (j in stat){
   for (i in vars) {
     
-    tifs <- list.files(paste0('data/', j),
+    tifs <- list.files(file.path(climate_prefix, j),
                        pattern = i,
                        recursive = TRUE,
                        full.names = TRUE) %>%
       Filter(function(x) grepl(".tif", x), .)
     
-    sfInit(parallel = TRUE, cpus = parallel::detectCores())
-    sfExport(list = c("fpa_ll"))
-    
-    extractions <- sfLapply(as.list(tifs),
-                            fun = extract_one,
-                            fpa_ll = fpa_ll)
-    sfStop()
-    
-    # ensure that they all have the same length
-    stopifnot(all(lapply(extractions, nrow) == nrow(fpa_ll)))
-    
-    if (!file.exists(paste0('data/', j, '/fpa_', j, '_', i, '_summaries.rds'))) {
+    if (!file.exists(file.path(summaries_dir, paste0('fpa_', j, '_', i, '_summaries.rds')))) {
+      
+      sfInit(parallel = TRUE, cpus = parallel::detectCores())
+      sfExport(list = c("fpa_ll"))
+      
+      extractions <- sfLapply(as.list(tifs),
+                              fun = extract_one,
+                              fpa_ll = fpa_ll)
+      sfStop()
+      
+      # ensure that they all have the same length
+      stopifnot(all(lapply(extractions, nrow) == nrow(fpa_ll)))
+      
       # convert to a data frame
       extraction_df <- extractions %>%
         bind_cols %>%
@@ -63,26 +64,32 @@ for (j in stat){
                  sep = "_") %>%
         separate(varmonth,
                  into = c("statistic", "month"),
-                 sep = "\\.") %>% 
+                 sep = "\\.") %>%
         mutate(year = parse_number(year),
                month = parse_number(month)) %>%
         arrange(ID, FPA_ID, year, month, variable)
       
-      summary_name <- paste0('data/', j, '/fpa_', j, '_', i, '_summaries.rds')
+      summary_name <- file.path(summaries_dir, paste0('fpa_', j, '_', i, '_summaries.rds'))
       write_rds(fpa_summaries, summary_name)
+      
+      # push to S3
+      system(paste0('aws s3 sync data/summary s3://earthlab-modeling-human-ignitions/summary'))
+      
+      # to conserve space delete the large files
+      unlink(summary_name)
     }
     
     # save extraction and summary file for each variable
-    extract_name <- paste0('data/', j, '/fpa_', j, '_', i, '_extractions.rds')
+    extract_name <- file.path(summaries_dir, paste0('fpa_', j, '_', i, '_extractions.rds'))
     if (!file.exists(extract_name)) {
       write_rds(extractions, extract_name)
+      
+      # push all created csv climate variables
+      system(paste0('aws s3 sync data/summary s3://earthlab-modeling-human-ignitions/summary'))
+      
+      # to conserve space delete the large files
+      unlink(extract_name)
     }
-    
-    # push to S3
-    system(paste0('aws s3 sync ', 'data/', j, ' ', 's3://earthlab-natem/data/climate/key-vars/', j))
-    
-    # to conserve space delete the large files
-    unlink(extract_name)
-    unlink(summary_name)
+    gc()
   }
 }
