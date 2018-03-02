@@ -1,19 +1,14 @@
 
-# Create raster mask
-# 2k Fishnet
-fishnet_4k <- st_make_grid(usa_shp, cellsize = 4000, what = 'polygons') %>%
-  st_sf('geometry' = ., data.frame('fishid4k' = 1:length(.))) %>%
-  st_intersection(., st_union(usa_shp))
-
-ras_mask <- raster(as(fishnet_4k, "Spatial"), res = 4000)
-
+if (!exists("ras_mask")){
+  if (!file.exists(file.path(ancillary_dir, "ras_mask/ras_mask.tif"))){
+    if (!exists("fishnet_4k")) {
+      fishnet_4k <- st_read(file.path(fishnet_path, "fishnet_4k.gpkg"))
+    }
+    ras_mask <- raster(as(fishnet_4k, "Spatial"), res = 4000)
+}}
 # Calculate distance to power lines
-if (file.exists(file.path(anthro_dir, "dis_transmission_lines.tif"))) {
-
-  dis_transmission_lines <- raster(file.path(anthro_dir, "dis_transmission_lines.tif")) 
-
-  } else {
-    tl <- st_read(file.path(anthro_dir, "tranmission_lns.gpkg"))
+if (!file.exists(file.path(anthro_dir, "dis_transmission_lines.tif"))) {
+    tl <- st_read(file.path(processed, "power_lines.gpkg"))
     
     sfInit(parallel = TRUE, cpus = ncor)
     sfExport(list = c("ncor", "usa_shp", "tl", "ras_mask"))
