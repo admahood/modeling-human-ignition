@@ -29,7 +29,7 @@ if (!exists("fishnet_4k")) {
     fishnet_4k <- st_make_grid(usa_shp, cellsize = 4000, what = 'polygons') %>%
       st_sf('geometry' = ., data.frame('fishid4k' = 1:length(.))) %>%
       st_intersection(., st_union(usa_shp))
-    
+
     st_write(fishnet_4k,
              file.path(fishnet_path, "fishnet_4k.gpkg"),
              driver = "GPKG")
@@ -48,7 +48,7 @@ if (!exists("fpa_clean")) {
         st_transform(st_crs(usa_shp)) %>%
         st_intersection(., st_union(usa_shp))
     }
-    
+
     fpa_clean <- fpa %>%
       filter(FIRE_SIZE >= 1 & STAT_CAUSE_DESCR != "HUMAN") %>%
       dplyr::select(FPA_ID, LATITUDE, LONGITUDE, ICS_209_INCIDENT_NUMBER, ICS_209_NAME, MTBS_ID, MTBS_FIRE_NAME,
@@ -61,7 +61,7 @@ if (!exists("fpa_clean")) {
              ym = as.yearmon(paste(year, sprintf("%02d", month),
                                    sep = "-"))) %>%
       st_join(., fishnet_4k, join = st_intersects)
-    
+
     st_write(fpa_clean,
              file.path(processed_dir, "fpa_clean.gpkg"),
              driver = "GPKG")
@@ -71,65 +71,29 @@ if (!exists("fpa_clean")) {
   }
 }
 
-# count the number of human and lightning fires in each pixel in each month for each year
-# count_df <- fpa_clean %>%
-#   tbl_df %>%
-#   dplyr::select(-Shape) %>%
-#   group_by(fishid4k, cause, year, month) %>%
-#   summarize(n_fire = n()) %>%
-#   ungroup %>%
-#   mutate(n_fire = ifelse(is.na(n_fire), 0, n_fire),
-#          ym = as.yearmon(paste(year, sprintf("%02d", month), sep = "-"))) %>%
-#   arrange(ym)
-#
-# assert_that(0 == sum(is.na(count_df$fishid4k)))
-# assert_that(sum(count_df$n_fire) == nrow(fpa_clean))
-# assert_that(all(fishnet_4k$fishid4k %in% count_df$fishid4k))
-# last line is throwing back errors...
-
-
-#### This DOESNT WORK AS OF 2/7/2018 - still compiling the summaries table!#################
-# load covariate data and link to count data frame
-
-# ecoregion_summaries <- read_csv(<add url here>,
-#                                 col_types = cols(
-#                                   NA_L3NAME = col_character(),
-#                                   variable = col_character(),
-#                                   year = col_number(),
-#                                   month = col_number(),
-#                                   wmean = col_number())
-# ) %>%
-#   mutate(year = ifelse(year == 2, 2000, year),
-#          year = parse_number(year),
-#          ym = as.yearmon(paste(year,
-#                                sprintf("%02d", month),
-#                                sep = "-"))) %>%
-#   spread(variable, wmean)
-
 # Import ancillary data
-# Roads
-
-# if (!exists("rds")) {
-#   rds <-
-#     st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
-# }
-
 # Primary Roads
 if (!exists("primary_rds")) {
   if (!file.exists(file.path(processed_dir, "primary_rds.gpkg"))) {
     if (!exists("rds")) {
       rds <-
-        st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')}
+        st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
+      }
+
     primary_rds <- rds %>%
-      filter(MTFCC == "S1100") %>%
-      st_transform(p4string_ea) %>%
-      st_intersection(., st_transform(usa_shp, p4string_ea)) %>%
-      mutate(bool_prds = 1)
-    
+    filter(MTFCC == "S1100") %>%
+    st_transform(p4string_ea) %>%
+    st_intersection(., st_transform(usa_shp, p4string_ea)) %>%
+    mutate(bool_prds = 1)
+
     st_write(primary_rds,
              file.path(processed_dir, "primary_rds.gpkg"),
              driver = "GPKG")
+  } else {
+
+    primary_rds <- st_read(dsn = file.path(processed_dir, "primary_rds.gpkg")
   }
+}
 }
 
 # Secondary roads
@@ -137,19 +101,48 @@ if (!exists("secondary_rds")) {
   if (!file.exists(file.path(processed_dir, "secondary_rds.gpkg"))) {
     if (!exists("rds")) {
       rds <-
-        st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')}
-    secondary_rds <- rds %>%
-      filter(MTFCC == "S1200") %>%
-      st_transform(p4string_ea) %>%
-      st_intersection(., usa_shp) %>%
-      mutate(bool_srds = 1)
-    
-    
+        st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
+      }
+
+        secondary_rds <- rds %>%
+        filter(MTFCC == "S1200") %>%
+        st_transform(p4string_ea) %>%
+        st_intersection(., usa_shp) %>%
+        mutate(bool_srds = 1)
+
+
     st_write(secondary_rds,
              file.path(processed_dir, "secondary_rds.gpkg"),
              driver = "GPKG")
+  } else {
+
+    secondary_rds <- st_read(dsn = file.path(processed_dir, "secondary_rds.gpkg")
   }
 }
+
+# Tertiary roads
+if (!exists("tertiary_rds")) {
+  if (!file.exists(file.path(processed_dir, "tertiary_rds.gpkg"))) {
+    if (!exists("rds")) {
+      rds <-
+        st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
+      }
+
+      tertiary_rds <- rds %>%
+      filter(MTFCC == "S1400") %>%
+      st_transform(p4string_ea) %>%
+      st_intersection(., usa_shp) %>%
+      mutate(bool_trds = 1)
+
+      st_write(secondary_rds,
+        file.path(processed_dir, "tertiary_rds.gpkg"),
+        driver = "GPKG")
+
+      } else {
+
+        tertiary_rds <- st_read(dsn = file.path(processed_dir, "tertiary_rds.gpkg")
+      }
+    }
 
 # All major roads
 if (!exists("all_rds")) {
@@ -162,8 +155,8 @@ if (!exists("all_rds")) {
       st_transform(p4string_ea) %>%
       st_intersection(., usa_shp) %>%
       mutate(bool_ards = 1)
-    
-    
+
+
     st_write(all_rds,
              file.path(processed_dir, "all_rds.gpkg"),
              driver = "GPKG")
@@ -177,7 +170,7 @@ if (!exists("rail_rds")) {
       st_transform(p4string_ea) %>%
       st_intersection(., usa_shp) %>%
       mutate(bool_rrds = 1)
-    
+
     st_write(rail_rds,
              file.path(anthro_dir, "rail_rds.gpkg"),
              driver = "GPKG",
@@ -195,7 +188,7 @@ if (!exists("tl")) {
       st_intersection(., usa_shp) %>%
       mutate(bool_tl = 1) %>%
       filter(st_is(., c("LINESTRING")))
-    
+
     st_write(tl,
              file.path(anthro_dir, "power_lines.gpkg"),
              driver = "GPKG")
