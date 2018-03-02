@@ -1,5 +1,3 @@
-s3_raw_prefix <- 's3://earthlab-modeling-human-ignitions/raw/'
-
 # Download the FPA-FOD data
 
 fpa_gdb <- file.path(fpa_prefix, "Data", "FPA_FOD_20170508.gdb")
@@ -28,8 +26,8 @@ if (!file.exists(rails_shp)) {
   unzip(dest, exdir = rails_prefix)
   unlink(dest)
   assert_that(file.exists(rails_shp))
-  system(paste0('aws s3 cp ', 
-                rails_shp, " ", 
+  system(paste0('aws s3 cp ',
+                rails_shp, " ",
                 s3_raw_prefix, "tlgdb_2015_a_us_rails/",  "tlgdb_2015_a_us_rails.gdb"))
 }
 
@@ -93,7 +91,6 @@ if (!file.exists(elev_nc)) {
 
 
 #Download the NLCD 2011
-source("src/functions/decompress_function.R")
 
 # Adam says:
 # I had some problems with this decompress function working
@@ -106,9 +103,9 @@ if (!file.exists(nlcd_img)) {
   loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2011&FNAME=nlcd_2011_landcover_2011_edition_2014_10_10.zip"
   dest <- paste0(raw_prefix, ".zip")
   download.file(loc, dest)
+  print("extracting")
   decompress_file("data/raw.zip", #downloaded file
-                  "data/raw/", #destination directory
-                  .file_cache = FALSE)
+                  "data/raw/") #destination directory
   unlink(dest)
   assert_that(file.exists(nlcd_img))
   system(paste0("aws s3 cp ",

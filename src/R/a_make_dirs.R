@@ -1,17 +1,18 @@
 
-x <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest",
+x <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest", 'parallel',
        "httr", "purrr", "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall")
 lapply(x, library, character.only = TRUE, verbose = FALSE)
 
 source('src/functions/helper_functions.R')
 source("src/functions/download-data.R")
 source('src/functions/st_par.R')
+source("src/functions/decompress_function.R")
 
 # Projections
 p4string_ed <- "+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"   #http://spatialreference.org/ref/esri/102005/
 p4string_ea <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"   #http://spatialreference.org/ref/sr-org/6903/
 
-ncor <- parallel::detectCores()
+ncore <- parallel::detectCores()
 
 prefix <- ("data")
 raw_prefix <- file.path(prefix, "raw")
@@ -40,6 +41,7 @@ fishnet_path <- file.path(ancillary_dir, "fishnet")
 
 s3_anc_prefix <- 's3://earthlab-modeling-human-ignitions/ancillary/'
 s3_proc_prefix <- 's3://earthlab-modeling-human-ignitions/processed/'
+s3_raw_prefix <- 's3://earthlab-modeling-human-ignitions/raw/'
 
 # Check if directory exists for all variable aggregate outputs, if not then create
 var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix, summary_dir,
