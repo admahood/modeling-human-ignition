@@ -1,16 +1,4 @@
 
-# Download and import the Level 3 Ecoregions data
-# Download will only happen once as long as the file exists
-if (!exists("ecoregions")){
-  ecoregions <- load_data(url = "ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l3.zip",
-                          dir = ecoregion_prefix, layer = "us_eco_l3", outname = "ecoregion") %>%
-    st_simplify(., preserveTopology = TRUE, dTolerance = 1000)  %>%
-    mutate(NA_L3NAME = as.character(NA_L3NAME),
-           NA_L3NAME = ifelse(NA_L3NAME == 'Chihuahuan Desert',
-                              'Chihuahuan Deserts',
-                              NA_L3NAME))
-}
-
 # Download and import CONUS states
 # Download will only happen once as long as the file exists
 if (!exists("usa_shp")){
@@ -18,8 +6,21 @@ if (!exists("usa_shp")){
                        dir = us_prefix,
                        layer = "cb_2016_us_state_20m",
                        outname = "usa") %>%
-    st_transform(st_crs(ecoregions)) %>%
+    st_transform(p4string_ea) %>%
     filter(!STUSPS %in% c("HI", "AK", "PR"))
+}
+
+# Download and import the Level 3 Ecoregions data
+# Download will only happen once as long as the file exists
+if (!exists("ecoregions")){
+  ecoregions <- load_data(url = "ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l3.zip",
+                          dir = ecoregion_prefix, layer = "us_eco_l3", outname = "ecoregion") %>%
+    st_simplify(., preserveTopology = TRUE, dTolerance = 1000)  %>%
+    st_transform(st_crs(usa_shp)) %>%
+    mutate(NA_L3NAME = as.character(NA_L3NAME),
+           NA_L3NAME = ifelse(NA_L3NAME == 'Chihuahuan Desert',
+                              'Chihuahuan Deserts',
+                              NA_L3NAME))
 }
 
 # Create raster mask
