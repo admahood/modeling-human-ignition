@@ -2,9 +2,9 @@
 if (!exists("fpa_ll")) {
   
   fpa_ll <- st_read(file.path(processed_dir, "fpa_clean.gpkg")) %>%
-    st_transform(st_crs(usa_shp)) %>%
+    st_par(., st_transform, n_cores = ncor, y = st_crs(usa_shp)) %>%
     st_intersection(., st_union(usa_shp)) %>%
-    st_transform("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0")
+    st_par(., st_transform, n_cores = ncor, y = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0")
 }
 
 extract_one <- function(filename, fpa_ll) {
