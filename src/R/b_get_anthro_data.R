@@ -10,10 +10,9 @@ if (!file.exists(fpa_gdb)) {
   unzip(dest, exdir = fpa_prefix)
   unlink(dest)
   assert_that(file.exists(fpa_gdb))
-  system(paste0('aws s3 cp ', #command
+  system(paste0('aws s3 sync ', #command
                 fpa_gdb, "/ ", #source file
-                s3_raw_prefix, "fpa-fod/",  "FPA_FOD_20170508.gdb/",
-                " --recursive")) #destination
+                s3_raw_prefix, "fpa-fod/",  "FPA_FOD_20170508.gdb/")) #destination
 }
 
 #Download the railrods
@@ -26,7 +25,7 @@ if (!file.exists(rails_shp)) {
   unzip(dest, exdir = rails_prefix)
   unlink(dest)
   assert_that(file.exists(rails_shp))
-  system(paste0('aws s3 cp ',
+  system(paste0('aws s3 sync ',
                 rails_shp, " ",
                 s3_raw_prefix, "tlgdb_2015_a_us_rails/",  "tlgdb_2015_a_us_rails.gdb"))
 }
@@ -41,10 +40,9 @@ if (!file.exists(tl_shp)) {
   unzip(dest, exdir = tl_prefix)
   unlink(dest)
   assert_that(file.exists(tl_shp))
-  system(paste0('aws s3 cp ', #command
+  system(paste0('aws s3 sync ', #command
                 tl_prefix, "/ ", #source DIRECTORY
-                s3_raw_prefix, "Electric_Power_Transmission_Lines/ ", #destination directory
-                "--recursive")) # making it recursive
+                s3_raw_prefix, "Electric_Power_Transmission_Lines/ ")) # making it recursive
 }
 
 # Download population density by county from 2010-2100
@@ -57,10 +55,9 @@ if (!file.exists(pd_shp)) {
   unzip(dest, exdir = raw_prefix)
   unlink(dest)
   assert_that(file.exists(pd_shp))
-  system(paste0('aws s3 cp ',
+  system(paste0('aws s3 sync ',
                 raw_prefix, "/county_pop/ ",
-                s3_raw_prefix, "county_pop/ ",
-                "--recursive"))
+                s3_raw_prefix, "county_pop/ "))
 }
 
 # Download housing density baseline scenario
@@ -71,32 +68,12 @@ if (!file.exists(iclus_nc)) {
   dest <- paste0(iclus_prefix, "/hd_iclus_bc.nc")
   download.file(loc, dest)
   assert_that(file.exists(iclus_nc))
-  system(paste0('aws s3 cp ',
+  system(paste0('aws s3 sync ',
                 iclus_nc, " ",
                 s3_raw_prefix, "housing_den/",  "hd_iclus_bc.nc"))
 }
 
-# Download elevation
-
-elev_nc <- file.path(elev_prefix, 'metdata_elevationdata.nc')
-if (!file.exists(elev_nc)) {
-  loc <- "https://climate.northwestknowledge.net/METDATA/data/metdata_elevationdata.nc"
-  dest <- paste0(elev_prefix, "/metdata_elevationdata.nc")
-  download.file(loc, dest)
-  assert_that(file.exists(elev_nc))
-  system(paste0('aws s3 cp ',
-                elev_nc, " ",
-                s3_raw_prefix, "metadata_elevationdata/",  "metadata_elevationdata.nc"))
-}
-
-
 #Download the NLCD 2011
-
-# Adam says:
-# I had some problems with this decompress function working
-# This was the error message:
-# Error in setwd(directory) : cannot change working directory
-# Ijust unzipped manually and moved on....
 
 nlcd_img <- file.path(nlcd_prefix, 'nlcd_2011_landcover_2011_edition_2014_10_10.img')
 if (!file.exists(nlcd_img)) {
@@ -108,10 +85,9 @@ if (!file.exists(nlcd_img)) {
                   "data/raw/") #destination directory
   unlink(dest)
   assert_that(file.exists(nlcd_img))
-  system(paste0("aws s3 cp ",
+  system(paste0("aws s3 sync ",
                 nlcd_prefix, "/ ",
-                s3_raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10/ ",
-                "--recursive"))
+                s3_raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10/"))
 }
 
 #Download the roads
@@ -124,7 +100,7 @@ if (!file.exists(roads_shp)) {
   unzip(dest, exdir = raw_prefix)
   unlink(dest)
   assert_that(file.exists(roads_shp))
-  system(paste0('aws s3 cp ',
+  system(paste0('aws s3 sync ',
                 roads_shp, " ",
                 s3_raw_prefix, "tlgdb_2015_a_us_roads/",  "tlgdb_2015_a_us_roads.gdb"))
 }
