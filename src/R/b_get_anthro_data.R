@@ -15,7 +15,7 @@ if (!file.exists(fpa_gdb)) {
                 s3_raw_prefix, "fpa-fod/",  "FPA_FOD_20170508.gdb/")) #destination
 }
 
-#Download the railrods
+# Download the railrods
 
 rails_shp <- file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb')
 if (!file.exists(rails_shp)) {
@@ -30,7 +30,7 @@ if (!file.exists(rails_shp)) {
                 s3_raw_prefix, "tlgdb_2015_a_us_rails/",  "tlgdb_2015_a_us_rails.gdb"))
 }
 
-#Download the tramission lines
+# Download the tramission lines
 
 tl_shp <- file.path(tl_prefix, 'Electric_Power_Transmission_Lines.shp')
 if (!file.exists(tl_shp)) {
@@ -73,7 +73,7 @@ if (!file.exists(iclus_nc)) {
                 s3_raw_prefix, "housing_den/",  "hd_iclus_bc.nc"))
 }
 
-#Download the NLCD 2011
+# Download the NLCD 2011
 
 nlcd_img <- file.path(nlcd_prefix, 'nlcd_2011_landcover_2011_edition_2014_10_10.img')
 if (!file.exists(nlcd_img)) {
@@ -90,7 +90,7 @@ if (!file.exists(nlcd_img)) {
                 s3_raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10/"))
 }
 
-#Download the roads
+# Download the roads
 
 roads_shp <- file.path(roads_prefix, 'tlgdb_2015_a_us_roads.gdb')
 if (!file.exists(roads_shp)) {
