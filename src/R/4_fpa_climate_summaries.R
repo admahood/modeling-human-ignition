@@ -108,7 +108,7 @@ for (j in stat){
                ID = as.integer(ID))
 
       # quick check to know where we are in the processing
-      print(paste0('Creating final ', j, ' ', i, 'summaries'))
+      print(paste0('Creating final ', j, ' ', i, ' summaries'))
 
       # clean the final, long climate data frame with linked fpa ids
       fpa_summaries <- extraction_df %>%
