@@ -52,16 +52,15 @@ if (!exists("fpa_clean")) {
     }
 
     fpa_clean <- fpa %>%
+      filter(FIRE_SIZE >= 1) %>%
       dplyr::select(FPA_ID, LATITUDE, LONGITUDE, ICS_209_INCIDENT_NUMBER, ICS_209_NAME, MTBS_ID, MTBS_FIRE_NAME,
                     FIRE_YEAR, DISCOVERY_DATE, DISCOVERY_DOY, STAT_CAUSE_DESCR, FIRE_SIZE, STATE)  %>%
       dplyr::mutate(cause = ifelse(STAT_CAUSE_DESCR == "Lightning", "Lightning", "Human"),
                     FIRE_SIZE_km2 = (FIRE_SIZE*4046.86)/1000000,
                     doy = day(DISCOVERY_DATE),
+                    day = day(DISCOVERY_DATE),
                     month = month(DISCOVERY_DATE),
-                    year = FIRE_YEAR,
-                    ym = as.yearmon(paste(year, sprintf("%02d", month),
-                                          sep = "-"))) %>%
-      dplyr::rename_all(tolower)
+                    year = FIRE_YEAR)
 
     sf::st_write(fpa_clean,
                  file.path(processed_dir, "fpa_clean.gpkg"),
@@ -197,11 +196,25 @@ if (!exists("tl")) {
 # Note this has to be manually downloaded from Earth Explorer unfortuantely
 # Download elevation (https://lta.cr.usgs.gov/GTOPO30)
 
+# pull the elevation data from s3 if not already in the working data directory
+if (!file.exists(file.path(raw_prefix, 'gtopo30', 'gt30w100n40.tif'))) {
+  system('aws s3 sync s3://earthlab-modeling-human-ignitions/raw/gtopo30 modeling-human-ignition/data/raw/gtopo30')
+}
+
 mosaic_rasters <- function(files){
+
+  # this function will take a list of raster data with full path names and:
+  #  1. read in all rasters iteratively
+  #  2. create a raster list of all created rasters
+  #  3. mosaic all rasters, using mean if tiles overlap.
+  #
+  # the only input needed is the list of raster filenames
 
   #Internal function to make a list of raster objects from list of files.
   list_rasters <- function(list_names) {
+
     raster_list <- list() # initialise the list of rasters
+
     for (i in 1:(length(list_names))){
 
       rst_name <- list_names[i] # list_names contains all the names of the images in .grd format
@@ -228,6 +241,7 @@ mosaic_rasters <- function(files){
   return(mos)
 }
 
+#
 elev_files <- list.files(file.path(raw_prefix, 'gtopo30'),
                          pattern = '.tif',
                          recursive = TRUE,
