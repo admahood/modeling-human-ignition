@@ -146,6 +146,62 @@ if (!file.exists(nlcd06_img)){
                 s3_raw_prefix, "nlcd_2006_landcover_2011_edition_2014_10_10/"))
 }
 
+# Download NLCD percent developed imperviousness 2001
+nlcd_pdi_01_img <- file.path(nlcd_pdi_01_prefix, "nlcd_2001_impervious_2011_edition_2014_10_10.img")
+if (!file.exists(nlcd_pdi_01_img)){
+  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2001v2&FNAME=nlcd_2001_impervious_2011_edition_2014_10_10.zip"
+  dest <- paste0(raw_prefix, "/nlcdpdi01.zip")
+  download.file(loc, dest)
+  system(paste0("unzip ",
+                dest,
+                " -d ",
+                raw_prefix))
+  
+  unlink(dest)
+  assert_that(file.exists(nlcd_pdi_01_img))
+  system(paste0("aws s3 sync ",
+                nlcd_pdi_01_prefix, "/ ",
+                s3_raw_prefix, "nlcd_2001_impervious_2011_edition_2014_10_10/"))
+}
+
+# Download NLCD percent developed imperviousness 2006
+nlcd_pdi_06_img <- file.path(nlcd_pdi_06_prefix, "nlcd_2006_impervious_2011_edition_2014_10_10.img")
+if (!file.exists(nlcd_pdi_06_img)){
+  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2001v2&FNAME=nlcd_2006_impervious_2011_edition_2014_10_10.zip"
+  dest <- paste0(raw_prefix, "/nlcdpdi06.zip")
+  download.file(loc, dest)
+  system(paste0("unzip ",
+                dest,
+                " -d ",
+                raw_prefix))
+  
+  unlink(dest)
+  assert_that(file.exists(nlcd_pdi_06_img))
+  system(paste0("aws s3 sync ",
+                nlcd_pdi_06_prefix, "/ ",
+                s3_raw_prefix, "nlcd_2006_impervious_2011_edition_2014_10_10/"))
+}
+
+# Download NLCD percent developed imperviousness 2011
+nlcd_pdi_11_img <- file.path(nlcd_pdi_11_prefix, "nlcd_2011_impervious_2011_edition_2014_10_10.img")
+if (!file.exists(nlcd_pdi_11_img)){
+  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2001v2&FNAME=nlcd_2011_impervious_2011_edition_2014_10_10.zip"
+  dest <- paste0(raw_prefix, "/nlcdpdi11.zip")
+  download.file(loc, dest)
+  system(paste0("unzip ",
+                dest,
+                " -d ",
+                raw_prefix))
+  
+  unlink(dest)
+  assert_that(file.exists(nlcd_pdi_11_img))
+  system(paste0("aws s3 sync ",
+                nlcd_pdi_11_prefix, "/ ",
+                s3_raw_prefix, "nlcd_2011_impervious_2011_edition_2014_10_10/"))
+}
+
+
+
 # Download the roads
 
 roads_shp <- file.path(roads_prefix, 'tlgdb_2015_a_us_roads.gdb')
