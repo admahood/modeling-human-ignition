@@ -90,6 +90,50 @@ if (!file.exists(nlcd_img)) {
                 s3_raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10/"))
 }
 
+# Download NLCD 1992
+# filename
+# if (!file.exists(filename)){
+loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd92&FNAME=nlcd_1992_30meter_whole.zip"
+dest <- paste0(raw_prefix, "/nlcd92.zip")
+download.file(loc, dest)
+system(paste0("unzip ",
+              dest))
+
+unlink(dest)
+assert_that(file.exists(nlcd_img))
+system(paste0("aws s3 sync ",
+              nlcd_prefix, "/ ",
+              s3_raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10/"))
+
+
+# }
+
+# Download NLCD 2001
+# filename
+# if (!file.exists(filename)){
+loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2001v2&FNAME=nlcd_2001_landcover_2011_edition_2014_10_10.zip"
+dest <- paste0(raw_prefix, "/nlcd92.zip")
+download.file(loc, dest)
+system(paste0("unzip ",
+              dest))
+
+unlink(dest)
+assert_that(file.exists(nlcd_img))
+ # }
+
+# Download NLCD 2006
+# filename
+# if (!file.exists(filename)){
+loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2006&FNAME=nlcd_2006_landcover_2011_edition_2014_10_10.zip"
+dest <- paste0(raw_prefix, "/nlcd92.zip")
+download.file(loc, dest)
+system(paste0("unzip ",
+              dest))
+
+unlink(dest)
+assert_that(file.exists(nlcd_img))
+# }
+
 # Download the roads
 
 roads_shp <- file.path(roads_prefix, 'tlgdb_2015_a_us_roads.gdb')

@@ -37,6 +37,7 @@ elev_prefix <- file.path(raw_prefix, 'metdata_elevationdata')
 tl_prefix <- file.path(raw_prefix, 'Electric_Power_Transmission_Lines')
 climate_prefix <- file.path(prefix, "climate")
 
+
 # create direcotires to hold climate summary outputs
 summaries_dir <- file.path(summary_dir, "fpa_climate_summaries")
 extraction_dir <- file.path(summary_dir, "fpa_climate_extraction")
