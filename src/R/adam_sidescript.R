@@ -24,36 +24,43 @@ lengthInCell <- function(i, r, l) {
   }
 }
 
-density <- function(rast, dsn, layer){
+density <- function(rast, layer){
   # get the template raster (ras_mask)
   rLength <- raster(rast)
   
   # read in shapefile, transform to raster crs
-  sl <- st_read(dsn,layer) %>%
-    st_transform(crs = crs(rast, asText = TRUE)) %>%
+  sl <- st_read(layer) %>%
+    st_transform(crs = crs(rLength, asText = TRUE)) %>%
     as("Spatial")
   
   # Calculate lengths
   lengths <- sapply(1:ncell(rLength), lengthInCell, rLength, sl)
+  
+  # cl <- makeCluster(detectCores())
+  # lengths <- parSapply(cl, 1:ncell(rLength), FUN = lengthInCell, r=rLength, l=sl )
+  # stopCluster(cl)
   rLength[] <- lengths
+  
+  writeRaster(rLength, "primary_rd_density.tif")
+  system('aws s3 cp primary_rd_density.tif s3://earthlab-modeling-human-ignitions/processed/primary_rd_density.tif')
   
   #output
   return(rLength)
 }
 
 #### do the stuff ####
-dsn <- "data/raw/road_sample/"
-layer <- "tl_2017_27037_roads"
-rast <- raster(as(usa_shp, "Spatial"), res = 4000)
+dsn <- ""
+layer <- "data/processed/primary_rds.gpkg"
+rast <- "data/ancillary/ras_mask/ras_mask.tif"
 
-test = density(dsn=dsn,layer=layer,rast=rast)
+test = density(layer=layer,rast=rast)
 
 
-fishnet_4k <- st_make_grid(usa_shp, cellsize = 4000, what = 'polygons') %>%
-  st_sf('geometry' = ., data.frame('fishid4k' = 1:length(.))) %>%
-  st_intersection(., st_union(usa_shp))
-
-ras_mask <- raster(as(fishnet_4k, "Spatial"), res = 4000)
+# fishnet_4k <- st_make_grid(usa_shp, cellsize = 4000, what = 'polygons') %>%
+#   st_sf('geometry' = ., data.frame('fishid4k' = 1:length(.))) %>%
+#   st_intersection(., st_union(usa_shp))
+# 
+# ras_mask <- raster(as(fishnet_4k, "Spatial"), res = 4000)
 
 
 
