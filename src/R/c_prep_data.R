@@ -52,7 +52,6 @@ if (!exists("fpa_clean")) {
     }
 
     fpa_clean <- fpa %>%
-      filter(FIRE_SIZE >= 1) %>%
       dplyr::select(FPA_ID, LATITUDE, LONGITUDE, ICS_209_INCIDENT_NUMBER, ICS_209_NAME, MTBS_ID, MTBS_FIRE_NAME,
                     FIRE_YEAR, DISCOVERY_DATE, DISCOVERY_DOY, STAT_CAUSE_DESCR, FIRE_SIZE, STATE)  %>%
       dplyr::mutate(cause = ifelse(STAT_CAUSE_DESCR == "Lightning", "Lightning", "Human"),
