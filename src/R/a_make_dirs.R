@@ -31,6 +31,10 @@ fpa_prefix <- file.path(raw_prefix, "fpa-fod")
 roads_prefix <- file.path(raw_prefix, "tlgdb_2015_a_us_roads")
 rails_prefix <- file.path(raw_prefix, "tlgdb_2015_a_us_rails")
 nlcd_prefix <- file.path(raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10")
+nlcd92_prefix <- file.path(raw_prefix, "nlcd_1992")
+nlcd01_prefix <- file.path(raw_prefix, "nlcd_2001_landcover_2011_edition_2014_10_10")
+nlcd06_prefix <- file.path(raw_prefix, "nlcd_2006_landcover_2011_edition_2014_10_10")
+
 pd_prefix <- file.path(raw_prefix, "county_pop")
 iclus_prefix <- file.path(raw_prefix, 'housing_den')
 elev_prefix <- file.path(raw_prefix, 'metdata_elevationdata')
@@ -53,6 +57,6 @@ s3_raw_prefix <- 's3://earthlab-modeling-human-ignitions/raw/'
 # Check if directory exists for all variable aggregate outputs, if not then create
 var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix, summary_dir,
                 fpa_prefix, rails_prefix, pd_prefix, iclus_prefix, climate_prefix,
-                nlcd_prefix, elev_prefix, tl_prefix, ancillary_dir, anthro_dir,
+                nlcd_prefix,nlcd92_prefix ,nlcd01_prefix ,nlcd06_prefix , elev_prefix, tl_prefix, ancillary_dir, anthro_dir,
                 fishnet_path, processed_dir, summaries_dir, extraction_dir)
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
