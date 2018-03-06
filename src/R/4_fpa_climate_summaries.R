@@ -50,9 +50,10 @@ extract_one <- function(filename, shapefile_extractor) {
   res
 }
 
-# checks whether the statistic being evaluated has the variable data
-# if not then returns NULL
 check_tifs <- function(j, i, ...) {
+  # checks whether the statistic being evaluated has the variable data
+  # if not then returns NULL which allows the larger loop below to skip the inputs
+
   tif <- tryCatch(list.files(file.path(climate_prefix, j),
                              pattern = i,
                              recursive = TRUE,
@@ -63,6 +64,8 @@ check_tifs <- function(j, i, ...) {
                     warning(c)
                   }
   )
+  # if the length of the tryCatch is greater than one then that indicates there
+  # are data in the statistic/variable combination
   if (length(tif) > 1) {
     tif <- list.files(file.path(climate_prefix, j),
                       pattern = i,
@@ -70,6 +73,9 @@ check_tifs <- function(j, i, ...) {
                       full.names = TRUE) %>%
       Filter(function(x) grepl(".tif", x), .)
   } else {
+    # if the tif length is 0 then that indicates there are no climate data for
+    # that statistic/variable combination
+
     tif <- NULL
   }
 }
@@ -94,16 +100,18 @@ get_climate_lags <- function(fpa_df, climate_df, start_date, time_lag) {
     y <- y + (m + time_lag - 1) %/% 12
 
     # calculate the new lagged month
-    m <- ifelse(((m + time_lag) %% 12) == 0,12, (m + time_lag) %% 12)
+    m <- ifelse(((m + time_lag) %% 12) == 0, 12, (m + time_lag) %% 12)
 
     # stitch the new lagged date together
     as.Date(paste0(y, "-", m, "-", d))
   }
 
+  # remove the sf data - increases efficiency
   fpa_df <- fpa_df %>%
     as.data.frame() %>%
     select(-geom)
 
+  # pair down to the climate_df to allow for easier left_join
   climate_df <- climate_df %>%
     select('FPA_ID', 'ymd', 'value')
 
@@ -111,9 +119,12 @@ get_climate_lags <- function(fpa_df, climate_df, start_date, time_lag) {
     require(magrittr)
     require(tidyverse)
 
+    # create a lagged data year column that can be joined and extracted upon
     fpa_df <- fpa_df %>%
       dplyr::mutate(ymd_lagged = lag_date(start_date, -time_lag))
 
+    # the meat and potatoes.  This joins the fpa and climate data based on
+    #climate data dates and lagged fpa dates.
     fpa_df[, paste0(variable, '_lag_', j)] <- left_join(fpa_df, climate_df, by = c('FPA_ID', 'ymd_lagged' = 'ymd')) %>%
       dplyr::select(value)
   }
