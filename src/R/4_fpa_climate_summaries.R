@@ -174,7 +174,8 @@ for (j in stat){
                  into = c("variable", 'year', "statistic", "month"),
                  sep = "_|\\.") %>%
         mutate(day = '01',
-               ymd = as.Date(paste(year, month, day, sep='-')))
+               ymd = as.Date(paste(year, month, day, sep='-'))) %>%
+        select(FPA_ID, ymd, variable, statistic)
 
       fpa_summaries <- get_climate_lags(fpa_ll, extraction_df, fpa_ll$ymd, time_lag = 24)
 
