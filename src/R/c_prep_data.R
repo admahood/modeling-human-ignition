@@ -43,33 +43,36 @@ if (!exists("fishnet_4k")) {
 
 # Load and process FPA-FOD wildfire iginition data
 if (!exists("fpa_clean")) {
-  if (!file.exists(file.path(processed_dir, "fpa_clean.gpkg"))){
-    if (!exists("fpa")) {
-      fpa <- sf::st_read(dsn = file.path(fpa_prefix, "Data", "FPA_FOD_20170508.gdb"),
-                         layer = "Fires", quiet= FALSE) %>%
-        sf::st_transform(st_crs(usa_shp)) %>%
-        sf::st_intersection(., st_union(usa_shp))
+  if (file.exists(file.path(processed_dir, "fpa_clean.gpkg"))){
+    fpa_clean <- st_read(file.path(processed_dir, "fpa_clean.gpkg"))
+    
+    } else {
+      if (!exists("fpa")) {
+        fpa <- sf::st_read(dsn = file.path(fpa_prefix, "Data", "FPA_FOD_20170508.gdb"),
+                             layer = "Fires", quiet= FALSE) %>%
+            sf::st_transform(st_crs(usa_shp)) %>%
+            sf::st_intersection(., st_union(usa_shp))
+        }
+    
+        fpa_clean <- fpa %>%
+          dplyr::select(FPA_ID, LATITUDE, LONGITUDE, ICS_209_INCIDENT_NUMBER, ICS_209_NAME, MTBS_ID, MTBS_FIRE_NAME,
+                        FIRE_YEAR, DISCOVERY_DATE, DISCOVERY_DOY, STAT_CAUSE_DESCR, FIRE_SIZE, STATE)  %>%
+          dplyr::mutate(cause = ifelse(STAT_CAUSE_DESCR == "Lightning", "Lightning", "Human"),
+                        FIRE_SIZE_km2 = (FIRE_SIZE*4046.86)/1000000,
+                        doy = day(DISCOVERY_DATE),
+                        day = day(DISCOVERY_DATE),
+                        month = month(DISCOVERY_DATE),
+                        year = FIRE_YEAR)
+    
+        sf::st_write(fpa_clean,
+                     file.path(processed_dir, "fpa_clean.gpkg"),
+                     driver = "GPKG")
+    
+        system(paste0("aws s3 sync ",
+                      processed_dir, " ",
+                      s3_proc_prefix))
     }
-
-    fpa_clean <- fpa %>%
-      dplyr::select(FPA_ID, LATITUDE, LONGITUDE, ICS_209_INCIDENT_NUMBER, ICS_209_NAME, MTBS_ID, MTBS_FIRE_NAME,
-                    FIRE_YEAR, DISCOVERY_DATE, DISCOVERY_DOY, STAT_CAUSE_DESCR, FIRE_SIZE, STATE)  %>%
-      dplyr::mutate(cause = ifelse(STAT_CAUSE_DESCR == "Lightning", "Lightning", "Human"),
-                    FIRE_SIZE_km2 = (FIRE_SIZE*4046.86)/1000000,
-                    doy = day(DISCOVERY_DATE),
-                    day = day(DISCOVERY_DATE),
-                    month = month(DISCOVERY_DATE),
-                    year = FIRE_YEAR)
-
-    sf::st_write(fpa_clean,
-                 file.path(processed_dir, "fpa_clean.gpkg"),
-                 driver = "GPKG")
-
-    system(paste0("aws s3 sync ",
-                  processed_dir, " ",
-                  s3_proc_prefix))
   }
-}
 
 # Import ancillary data
 # Primary Roads
@@ -200,47 +203,6 @@ if (!file.exists(file.path(raw_prefix, 'gtopo30', 'gt30w100n40.tif'))) {
   system('aws s3 sync s3://earthlab-modeling-human-ignitions/raw/gtopo30 modeling-human-ignition/data/raw/gtopo30')
 }
 
-mosaic_rasters <- function(files){
-
-    # this function will take a list of raster data with full path names and:
-  #  1. read in all rasters iteratively
-  #  2. create a raster list of all created rasters
-  #  3. mosaic all rasters, using mean if tiles overlap.
-  #
-  # the only input needed is the list of raster filenames
-
-  #Internal function to make a list of raster objects from list of files.
-  list_rasters <- function(list_names) {
-
-    raster_list <- list() # initialise the list of rasters
-
-    for (i in 1:(length(list_names))){
-
-      rst_name <- list_names[i] # list_names contains all the names of the images in .grd format
-      raster_file <- raster::raster(rst_name)
-
-    }
-    raster_list <- append(raster_list, raster_file) # update raster_list at each iteration
-  }
-
-  #convert every raster path to a raster object and create list of the results
-  raster_list <- sapply(files, FUN = list_rasters)
-
-  # make all raster names null
-  names(raster_list) <- NULL
-
-  # take the mean of overlapping raster images
-  raster_list$fun <- mean
-
-  # mosaic all rasters in list
-  mos <- do.call(raster::mosaic, raster_list)
-
-  #set crs of output
-  crs(mos) <- crs(x = raster(files[1]))
-  return(mos)
-}
-
-#
 elev_files <- list.files(file.path(raw_prefix, 'gtopo30'),
                          pattern = '.tif',
                          full.names = TRUE)
@@ -321,3 +283,40 @@ if (!exists("aspect")) {
     aspect <- raster::raster(file.path(processed_dir, "aspect.tif"))
   }
 }
+
+# extract terrain variables by each fpa point and append to fpa dataframe
+tifs <- list.files(processed_dir,
+                         pattern = '.tif',
+                         full.names = TRUE)
+
+# extract terrain variables in parallel
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfExport(list = c("fpa_clean"))
+
+extractions <- sfLapply(as.list(tifs),
+                        fun = extract_one,
+                        shapefile_extractor = fpa_clean)
+sfStop()
+
+# ensure that they all have the same length
+stopifnot(all(lapply(extractions, nrow) == nrow(fpa_clean)))
+
+# convert to a data frame
+extraction_df <- extractions %>%
+  bind_cols %>%
+  as_tibble %>%
+  mutate(FPA_ID = data.frame(fpa_clean)$FPA_ID) %>%
+  dplyr::select(-starts_with('ID')) 
+
+# join the extraction_df to the full fpa-fod data
+extraction_df <- extraction_df %>%
+  left_join(fpa_clean, ., by = 'FPA_ID')
+
+# save processed/cleaned monthly extractions
+st_write(extraction_df, file.path(processed_dir, 'fpa_clean.gpkg'), delete_layer = TRUE)
+
+system(paste0("aws s3 sync ",
+              processed_dir, " ",
+              s3_proc_prefix))  
+
+  
