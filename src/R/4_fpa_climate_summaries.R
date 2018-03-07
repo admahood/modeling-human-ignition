@@ -1,6 +1,4 @@
 
-source('src/functions/helper_functions.R')
-
 if (!exists("fpa_ll")) {
   if (file.exists(file.path(processed_dir, "fpa_ll.gpkg"))) {
 
@@ -59,6 +57,9 @@ for (j in stat){
       stopifnot(all(lapply(extractions, nrow) == nrow(fpa_ll)))
 
       # convert to a data frame
+      print(paste("Creating extraction dataframe for ", i, j, ' summaries'))
+      start_time <- Sys.time()
+
       extraction_df <- extractions %>%
         bind_cols %>%
         as_tibble %>%
@@ -77,9 +78,19 @@ for (j in stat){
                  sep = "_|\\.") %>%
         mutate(day = '01',
                ymd = as.Date(paste(year, month, day, sep='-')))
-
+      end_time <- Sys.time()
+      time_taken <- end_time - start_time
+      print(paste("Creating extraction dataframe ", i, j, ' took ', time_taken, ' long'))
+      
+      print(paste("Creating fpa summaries for ", i, j))
+      start_time <- Sys.time()
+      
       fpa_summaries <- get_climate_lags(fpa_ll, extraction_df, fpa_ll$ymd, time_lag = 24)
-
+      
+      end_time <- Sys.time()
+      time_taken <- end_time - start_time
+      print(paste("Creating fpa summaries ", i, j, ' took ', time_taken, ' long'))
+      
       # save raw monthly extractions
       extract_name <- file.path(summaries_dir, paste0('fpa_', j, '_', i, '_extractions.rds'))
       if (!file.exists(extract_name)) {
