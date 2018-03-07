@@ -81,14 +81,126 @@ if (!file.exists(nlcd_img)) {
   dest <- paste0(raw_prefix, ".zip")
   download.file(loc, dest)
   print("extracting")
-  decompress_file("data/raw.zip", #downloaded file
-                  "data/raw/") #destination directory
+  system(paste0("unzip ",
+                dest,
+                "-d ",
+                raw_prefix))
   unlink(dest)
   assert_that(file.exists(nlcd_img))
   system(paste0("aws s3 sync ",
                 nlcd_prefix, "/ ",
                 s3_raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10/"))
 }
+
+# Download NLCD 1992
+nlcd92_img <- file.path(nlcd92_prefix, "nlcd_1992_30meter_whole.img")
+if (!file.exists(nlcd92_img)){
+loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd92&FNAME=nlcd_1992_30meter_whole.zip"
+dest <- paste0(raw_prefix, "/nlcd92.zip")
+download.file(loc, dest)
+system(paste0("unzip ",
+              dest,
+              " -d ",
+              nlcd92_prefix))
+
+unlink(dest)
+assert_that(file.exists(nlcd92_img))
+system(paste0("aws s3 sync ",
+              nlcd92_prefix, "/ ",
+              s3_raw_prefix, "nlcd_1992/"))
+}
+
+# Download NLCD 2001
+nlcd01_img <- file.path(nlcd01_prefix, "nlcd_2001_landcover_2011_edition_2014_10_10.img")
+if (!file.exists(nlcd01_img)){
+  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2001v2&FNAME=nlcd_2001_landcover_2011_edition_2014_10_10.zip"
+  dest <- paste0(raw_prefix, "/nlcd2001.zip")
+  download.file(loc, dest)
+  system(paste0("unzip ",
+                dest,
+                "-d ",
+                raw_prefix))
+  unlink(dest)
+  assert_that(file.exists(nlcd01_img))
+  system(paste0("aws s3 sync ",
+                nlcd01_prefix, "/ ",
+                s3_raw_prefix, "nlcd_2001_landcover_2011_edition_2014_10_10/"))
+
+}
+
+# Download NLCD 2006
+nlcd06_img <- file.path(nlcd06_prefix, "nlcd_2006_landcover_2011_edition_2014_10_10.img")
+if (!file.exists(nlcd06_img)){
+  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2006&FNAME=nlcd_2006_landcover_2011_edition_2014_10_10.zip"
+  dest <- paste0(raw_prefix, "/nlcd2006.zip")
+  download.file(loc, dest)
+  system(paste0("unzip ",
+                dest,
+                " -d ",
+                raw_prefix))
+  
+  unlink(dest)
+  assert_that(file.exists(nlcd06_img))
+  system(paste0("aws s3 sync ",
+                nlcd06_prefix, "/ ",
+                s3_raw_prefix, "nlcd_2006_landcover_2011_edition_2014_10_10/"))
+}
+
+# Download NLCD percent developed imperviousness 2001
+nlcd_pdi_01_img <- file.path(nlcd_pdi_01_prefix, "nlcd_2001_impervious_2011_edition_2014_10_10.img")
+if (!file.exists(nlcd_pdi_01_img)){
+  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2001v2&FNAME=nlcd_2001_impervious_2011_edition_2014_10_10.zip"
+  dest <- paste0(raw_prefix, "/nlcdpdi01.zip")
+  download.file(loc, dest)
+  system(paste0("unzip ",
+                dest,
+                " -d ",
+                raw_prefix))
+  
+  unlink(dest)
+  assert_that(file.exists(nlcd_pdi_01_img))
+  system(paste0("aws s3 sync ",
+                nlcd_pdi_01_prefix, "/ ",
+                s3_raw_prefix, "nlcd_2001_impervious_2011_edition_2014_10_10/"))
+}
+
+# Download NLCD percent developed imperviousness 2006
+nlcd_pdi_06_img <- file.path(nlcd_pdi_06_prefix, "nlcd_2006_impervious_2011_edition_2014_10_10.img")
+if (!file.exists(nlcd_pdi_06_img)){
+  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2001v2&FNAME=nlcd_2006_impervious_2011_edition_2014_10_10.zip"
+  dest <- paste0(raw_prefix, "/nlcdpdi06.zip")
+  download.file(loc, dest)
+  system(paste0("unzip ",
+                dest,
+                " -d ",
+                raw_prefix))
+  
+  unlink(dest)
+  assert_that(file.exists(nlcd_pdi_06_img))
+  system(paste0("aws s3 sync ",
+                nlcd_pdi_06_prefix, "/ ",
+                s3_raw_prefix, "nlcd_2006_impervious_2011_edition_2014_10_10/"))
+}
+
+# Download NLCD percent developed imperviousness 2011
+nlcd_pdi_11_img <- file.path(nlcd_pdi_11_prefix, "nlcd_2011_impervious_2011_edition_2014_10_10.img")
+if (!file.exists(nlcd_pdi_11_img)){
+  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2001v2&FNAME=nlcd_2011_impervious_2011_edition_2014_10_10.zip"
+  dest <- paste0(raw_prefix, "/nlcdpdi11.zip")
+  download.file(loc, dest)
+  system(paste0("unzip ",
+                dest,
+                " -d ",
+                raw_prefix))
+  
+  unlink(dest)
+  assert_that(file.exists(nlcd_pdi_11_img))
+  system(paste0("aws s3 sync ",
+                nlcd_pdi_11_prefix, "/ ",
+                s3_raw_prefix, "nlcd_2011_impervious_2011_edition_2014_10_10/"))
+}
+
+
 
 # Download the roads
 
