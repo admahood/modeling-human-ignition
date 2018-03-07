@@ -202,7 +202,7 @@ if (!file.exists(file.path(raw_prefix, 'gtopo30', 'gt30w100n40.tif'))) {
 
 mosaic_rasters <- function(files){
 
-  # this function will take a list of raster data with full path names and:
+    # this function will take a list of raster data with full path names and:
   #  1. read in all rasters iteratively
   #  2. create a raster list of all created rasters
   #  3. mosaic all rasters, using mean if tiles overlap.
@@ -236,23 +236,22 @@ mosaic_rasters <- function(files){
   mos <- do.call(raster::mosaic, raster_list)
 
   #set crs of output
-  crs(mos) <- crs(x = raster(list_names[1]))
+  crs(mos) <- crs(x = raster(files[1]))
   return(mos)
 }
 
 #
 elev_files <- list.files(file.path(raw_prefix, 'gtopo30'),
                          pattern = '.tif',
-                         recursive = TRUE,
                          full.names = TRUE)
 
 if (!exists("elevation")) {
   if (!file.exists(file.path(processed_dir, 'elevation.tif'))) {
 
     elevation <- mosaic_rasters(elev_files) %>%
-      raster::projetRaster(., res = 1000, crs = p4string_ea, method = 'bilinear') %>%
-      raster::crop(sf::as_Spatial(usa_shp)) %>%
-      raster::mask(sf::as_Spatial(usa_shp))
+      raster::projectRaster(., res = 1000, crs = p4string_ea, method = 'bilinear') %>%
+      raster::crop(as(usa_shp, 'Spatial')) %>%
+      raster::mask(as(usa_shp, 'Spatial'))
 
     raster::writeRaster(elevation, filename = file.path(processed_dir, "elevation.tif"), format = "GTiff")
 
