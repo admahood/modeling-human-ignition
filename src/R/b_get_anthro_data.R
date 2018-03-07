@@ -15,82 +15,41 @@ if (!file.exists(fpa_gdb)) {
                 s3_raw_prefix, "fpa-fod/",  "FPA_FOD_20170508.gdb/")) #destination
 }
 
-# Download the railrods
 
-rails_shp <- file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb')
-if (!file.exists(rails_shp)) {
-  loc <- "ftp://ftp2.census.gov/geo/tiger/TGRGDB15/tlgdb_2015_a_us_rails.gdb.zip"
-  dest <- paste0(rails_prefix, ".zip")
-  download.file(loc, dest)
-  unzip(dest, exdir = rails_prefix)
-  unlink(dest)
-  assert_that(file.exists(rails_shp))
-  system(paste0('aws s3 sync ',
-                rails_shp, " ",
-                s3_raw_prefix, "tlgdb_2015_a_us_rails/",  "tlgdb_2015_a_us_rails.gdb"))
-}
+# Download the roads
+roads_shp <- file.path(roads_prefix, 'tlgdb_2015_a_us_roads.gdb')
+download_data("ftp://ftp2.census.gov/geo/tiger/TGRGDB15/tlgdb_2015_a_us_roads.gdb.zip",
+roads_prefix,
+roads_shp,
+'tlgdb_2015_a_us_roads')
+
+# Download the railrods
+rails_shp <- file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb'))
+download_data("ftp://ftp2.census.gov/geo/tiger/TGRGDB15/tlgdb_2015_a_us_rails.gdb.zip",
+rails_prefix,
+rails_shp,
+'tlgdb_2015_a_us_rails')
 
 # Download the tramission lines
-
 tl_shp <- file.path(tl_prefix, 'Electric_Power_Transmission_Lines.shp')
-if (!file.exists(tl_shp)) {
-  loc <- "https://hifld-dhs-gii.opendata.arcgis.com/datasets/75af06441c994aaf8e36208b7cd44014_0.zip"
-  dest <- paste0(tl_prefix, ".zip")
-  download.file(loc, dest)
-  unzip(dest, exdir = tl_prefix)
-  unlink(dest)
-  assert_that(file.exists(tl_shp))
-  system(paste0('aws s3 sync ', #command
-                tl_prefix, "/ ", #source DIRECTORY
-                s3_raw_prefix, "Electric_Power_Transmission_Lines/ ")) # making it recursive
-}
+download_data("https://hifld-dhs-gii.opendata.arcgis.com/datasets/75af06441c994aaf8e36208b7cd44014_0.zip",
+tl_prefix,
+tl_shp,
+'Electric_Power_Transmission_Lines')
 
 # Download population density by county from 2010-2100
-
-pd_shp <- file.path(raw_prefix, "county_pop", 'cofips_upp.shp')
-if (!file.exists(pd_shp)) {
-  loc <- "https://edg.epa.gov/data/Public/ORD/NCEA/county_pop.zip"
-  dest <- paste0(raw_prefix, ".zip")
-  download.file(loc, dest)
-  unzip(dest, exdir = raw_prefix)
-  unlink(dest)
-  assert_that(file.exists(pd_shp))
-  system(paste0('aws s3 sync ',
-                raw_prefix, "/county_pop/ ",
-                s3_raw_prefix, "county_pop/ "))
-}
+pd_shp <- file.path(pd_prefix, 'cofips_upp.shp')
+download_data("https://edg.epa.gov/data/Public/ORD/NCEA/county_pop.zip",
+pd_prefix,
+pd_shp,
+'county_pop')
 
 # Download housing density baseline scenario
-
 iclus_nc <- file.path(iclus_prefix, 'hd_iclus_bc.nc')
-if (!file.exists(iclus_nc)) {
-  loc <- "https://cida.usgs.gov/thredds/fileServer/ICLUS/files/housing_density/hd_iclus_bc.nc"
-  dest <- paste0(iclus_prefix, "/hd_iclus_bc.nc")
-  download.file(loc, dest)
-  assert_that(file.exists(iclus_nc))
-  system(paste0('aws s3 sync ',
-                iclus_nc, " ",
-                s3_raw_prefix, "housing_den/",  "hd_iclus_bc.nc"))
-}
-
-# Download the NLCD 2011
-
-nlcd_img <- file.path(nlcd_prefix, 'nlcd_2011_landcover_2011_edition_2014_10_10.img')
-if (!file.exists(nlcd_img)) {
-  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2011&FNAME=nlcd_2011_landcover_2011_edition_2014_10_10.zip"
-  dest <- paste0(raw_prefix, ".zip")
-  download.file(loc, dest)
-  print("extracting")
-  system(paste0("unzip ",
-                dest,
-                "-d ",
-                raw_prefix))
-  unlink(dest)
-  assert_that(file.exists(nlcd_img))
-  system(paste0("aws s3 sync ",
-                nlcd_prefix, "/ ",
-                s3_raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10/"))
-}
+download_data("https://cida.usgs.gov/thredds/fileServer/ICLUS/files/housing_density/hd_iclus_bc.nc",
+iclus_prefix,
+iclus_nc,
+'housing_den')
 
 # Download NLCD 1992
 nlcd92_img <- file.path(nlcd92_prefix, "nlcd_1992_30meter_whole.img")
@@ -138,12 +97,31 @@ if (!file.exists(nlcd06_img)){
                 dest,
                 " -d ",
                 raw_prefix))
-  
+
   unlink(dest)
   assert_that(file.exists(nlcd06_img))
   system(paste0("aws s3 sync ",
                 nlcd06_prefix, "/ ",
                 s3_raw_prefix, "nlcd_2006_landcover_2011_edition_2014_10_10/"))
+}
+
+# Download the NLCD 2011
+
+nlcd_img <- file.path(nlcd_prefix, 'nlcd_2011_landcover_2011_edition_2014_10_10.img')
+if (!file.exists(nlcd_img)) {
+  loc <- "http://www.landfire.gov/bulk/downloadfile.php?TYPE=nlcd2011&FNAME=nlcd_2011_landcover_2011_edition_2014_10_10.zip"
+  dest <- paste0(raw_prefix, ".zip")
+  download.file(loc, dest)
+  print("extracting")
+  system(paste0("unzip ",
+                dest,
+                "-d ",
+                raw_prefix))
+  unlink(dest)
+  assert_that(file.exists(nlcd_img))
+  system(paste0("aws s3 sync ",
+                nlcd_prefix, "/ ",
+                s3_raw_prefix, "nlcd_2011_landcover_2011_edition_2014_10_10/"))
 }
 
 # Download NLCD percent developed imperviousness 2001
@@ -156,7 +134,7 @@ if (!file.exists(nlcd_pdi_01_img)){
                 dest,
                 " -d ",
                 raw_prefix))
-  
+
   unlink(dest)
   assert_that(file.exists(nlcd_pdi_01_img))
   system(paste0("aws s3 sync ",
@@ -174,7 +152,7 @@ if (!file.exists(nlcd_pdi_06_img)){
                 dest,
                 " -d ",
                 raw_prefix))
-  
+
   unlink(dest)
   assert_that(file.exists(nlcd_pdi_06_img))
   system(paste0("aws s3 sync ",
@@ -192,27 +170,10 @@ if (!file.exists(nlcd_pdi_11_img)){
                 dest,
                 " -d ",
                 raw_prefix))
-  
+
   unlink(dest)
   assert_that(file.exists(nlcd_pdi_11_img))
   system(paste0("aws s3 sync ",
                 nlcd_pdi_11_prefix, "/ ",
                 s3_raw_prefix, "nlcd_2011_impervious_2011_edition_2014_10_10/"))
-}
-
-
-
-# Download the roads
-
-roads_shp <- file.path(roads_prefix, 'tlgdb_2015_a_us_roads.gdb')
-if (!file.exists(roads_shp)) {
-  loc <- "ftp://ftp2.census.gov/geo/tiger/TGRGDB15/tlgdb_2015_a_us_roads.gdb.zip"
-  dest <- paste0(roads_prefix, ".zip")
-  download.file(loc, dest)
-  unzip(dest, exdir = raw_prefix)
-  unlink(dest)
-  assert_that(file.exists(roads_shp))
-  system(paste0('aws s3 sync ',
-                roads_shp, " ",
-                s3_raw_prefix, "tlgdb_2015_a_us_roads/",  "tlgdb_2015_a_us_roads.gdb"))
 }
