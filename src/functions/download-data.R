@@ -15,17 +15,17 @@ load_data <- function(url, dir, layer, outname) {
 
 
 download_data <-  function(url, dir, layer, fld_name) {
-  file <- paste0(dir, "/", layer)
+  dest <- paste0(raw_prefix, ".zip")
 
-  if (!file.exists(file)) {
-    dest <- paste0(dir, ".zip")
-    download.file(url, destfile = paste0(dir, ".zip"))
+  if (!file.exists(layer)) {
+    download.file(url, dest)
     unzip(dest,
-          exdir = dir)
+          exdir = raw_prefix)
     unlink(dest)
-    assert_that(file.exists(file))
+    assert_that(file.exists(layer))
 
     system(paste0('aws s3 sync ',
-                  file, " ",
+                  dir, " ",
                   s3_raw_prefix, fld_name))
   }
+}
