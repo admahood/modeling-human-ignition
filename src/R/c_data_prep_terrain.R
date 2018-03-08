@@ -49,6 +49,25 @@ if (!exists("slope")) {
   }
 }
 
+# Create terrain ruggedness
+if (!exists("ruggedness")) {
+  if (!file.exists(file.path(processed_dir, 'ruggedness.tif'))) {
+
+    ruggedness <- raster::raster(file.path(processed_dir, "elevation.tif")) %>%
+      raster::terrain(., opt = 'TRI')
+
+    raster::writeRaster(ruggedness, filename = file.path(processed_dir, "ruggedness.tif"), format = "GTiff")
+
+    system(paste0("aws s3 sync ",
+                  processed_dir, " ",
+                  s3_proc_prefix))
+
+  } else {
+
+    ruggedness <- raster::raster(file.path(processed_dir, "ruggedness.tif"))
+  }
+}
+
 # Create terrain roughness
 if (!exists("roughness")) {
   if (!file.exists(file.path(processed_dir, 'roughness.tif'))) {
