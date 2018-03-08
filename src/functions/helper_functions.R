@@ -187,3 +187,5 @@ sfc_as_cols <- function(x, names = c("x","y")) {
   ret <- setNames(ret,names)
   dplyr::bind_cols(x,ret)
 }
+
+
