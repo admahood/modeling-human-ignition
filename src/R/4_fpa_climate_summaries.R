@@ -43,8 +43,10 @@ for (j in stat){
 
       print(paste0('Skipping ', j, ' ', i))
 
-    } else if (!file.exists(file.path(summaries_dir, paste0('fpa_', j, '_', i, '_summaries.rds')))) {
+    } else if (!file.exists(file.path(summaries_dir, paste0('fpa_', i, '_', j, '_summaries.rds')))) {
 
+      print(paste0('Working on ', j, ' ', i))
+      
       sfInit(parallel = TRUE, cpus = parallel::detectCores())
       sfExport(list = c("fpa_ll"))
 
@@ -57,8 +59,7 @@ for (j in stat){
       stopifnot(all(lapply(extractions, nrow) == nrow(fpa_ll)))
 
       # convert to a data frame
-      print(paste("Creating extraction dataframe for ", i, j, ' summaries'))
-      start_time <- Sys.time()
+      print(paste0("Creating extraction dataframe for ", i, ' ', j, ' summaries'))
 
       extraction_df <- extractions %>%
         bind_cols %>%
@@ -78,44 +79,17 @@ for (j in stat){
                  sep = "_|\\.") %>%
         mutate(day = '01',
                ymd = as.Date(paste(year, month, day, sep='-')))
-      end_time <- Sys.time()
-      time_taken <- end_time - start_time
-      print(paste("Creating extraction dataframe ", i, j, ' took ', time_taken, ' long'))
       
-      print(paste("Creating fpa summaries for ", i, j))
-      start_time <- Sys.time()
+      print(paste0("Creating fpa summaries for ", i, ' ', j))
       
       fpa_summaries <- get_climate_lags(fpa_ll, extraction_df, fpa_ll$ymd, time_lag = 24)
-      
-      end_time <- Sys.time()
-      time_taken <- end_time - start_time
-      print(paste("Creating fpa summaries ", i, j, ' took ', time_taken, ' long'))
-      
-      # save raw monthly extractions
-      extract_name <- file.path(summaries_dir, paste0('fpa_', j, '_', i, '_extractions.rds'))
-      if (!file.exists(extract_name)) {
-        write_rds(extractions, extract_name)
-      }
 
-      # save processed/cleaned monthly extractions
-      # this data frame is in wide format
-      extract_df_name <- file.path(summaries_dir, paste0('fpa_', j, '_', i, '_extractions_df.rds'))
-      if (!file.exists(extract_df_name)) {
-        write_rds(extraction_df, extract_df_name)
-      }
-
-      # save the final cleaned climate extractions
-      # this dataframe is in long format to be used as a lookup table
+      # save the final cleaned climate extractions joined with the fpa-fod database
       summary_name <- file.path(summaries_dir, paste0('fpa_', j, '_', i, '_summaries.rds'))
       write_rds(fpa_summaries, summary_name)
 
       # push to S3
-      system(paste0('aws s3 cp data/summary s3://earthlab-modeling-human-ignitions/summary --recursive'))
-
-      # to conserve space delete the large files
-      unlink(extract_name)
-      unlink(summary_name)
-      unlink(extract_df_name)
+      system('aws s3 sync modeling-human-ignition/data/summary s3://earthlab-modeling-human-ignitions/summary')
 
       # creating the final dataframe takes about 150 GB of RAM, this clears the cache so it can be run again
       gc()
