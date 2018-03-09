@@ -79,13 +79,13 @@ get_climate_lags <- function(fpa_df, climate_df, start_date, time_lag) {
   # remove the sf data - increases efficiency
   fpa_df <- fpa_df %>%
     as.data.frame() %>%
-    select(-geom)
+    select(-geom) 
   
   # pair down to the climate_df to allow for easier left_join
   climate_df <- climate_df %>%
     select('FPA_ID', 'ymd', 'value')
   
-  for (j in 0:time_lag) {
+  foreach (j = 0:time_lag) %dopar% {
     require(magrittr)
     require(tidyverse)
     
@@ -187,5 +187,3 @@ sfc_as_cols <- function(x, names = c("x","y")) {
   ret <- setNames(ret,names)
   dplyr::bind_cols(x,ret)
 }
-
-
