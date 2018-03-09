@@ -83,7 +83,7 @@ get_climate_lags <- function(fpa_df, climate_df, start_date, time_lag) {
   
   # pair down to the climate_df to allow for easier left_join
   climate_df <- climate_df %>%
-    select('FPA_ID', 'ymd', 'value')
+    select('FPA_ID', 'year_month_day', 'value')
   
   foreach (j = 0:time_lag) %dopar% {
     require(magrittr)
@@ -95,7 +95,7 @@ get_climate_lags <- function(fpa_df, climate_df, start_date, time_lag) {
     
     # the meat and potatoes.  This joins the fpa and climate data based on
     #climate data dates and lagged fpa dates.
-    fpa_df[, paste0(variable, '_lag_', j)] <- left_join(fpa_df, climate_df, by = c('FPA_ID', 'ymd_lagged' = 'ymd')) %>%
+    fpa_df[, paste0(variable, '_lag_', j)] <- left_join(fpa_df, climate_df, by = c('FPA_ID', 'ymd_lagged' = 'year_month_day')) %>%
       dplyr::select(value)
   }
   return(fpa_df)
