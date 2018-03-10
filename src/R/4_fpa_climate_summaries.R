@@ -1,37 +1,37 @@
 
 if (!exists("fpa_ll")) {
   if (file.exists(file.path(processed_dir, "fpa_ll.gpkg"))) {
-
+    
     fpa_ll <- st_read(file.path(processed_dir, "fpa_ll.gpkg")) %>%
       mutate(year_month_day = floor_date(ymd(DISCOVERY_DATE), "month"))
-
+    
   } else if (!file.exists(file.path(processed_dir, "fpa_clean.gpkg"))) {
-
+    
     fpa_ll <- fpa_clean %>%
       st_transform(crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0") %>%
       mutate(year_month_day = floor_date(ymd(DISCOVERY_DATE), "month"))
-
+    
     st_write(fpa_ll, file.path(processed_dir, "fpa_ll.gpkg"), overwrite = TRUE)
-
+    
     system(paste0("aws s3 sync ",
                   processed_dir, " ",
                   s3_proc_prefix))
-
+    
   } else if (exists("fpa_clean")) {
-
+    
     fpa_ll <- st_read(file.path(processed_dir, "fpa_clean.gpkg")) %>%
       st_transform(crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0") %>%
       mutate(year_month_day = floor_date(ymd(DISCOVERY_DATE), "month"))
-
+    
     st_write(fpa_ll, file.path(processed_dir, "fpa_ll.gpkg"))
-
+    
     system(paste0("aws s3 sync ",
                   processed_dir, " ",
                   s3_proc_prefix))
   }
 }
 
-stat <- c('mean', 'days-above-95th', '95th-percentile')
+stat <- c('days-above-95th', '95th-percentile')
 vars <- c('aet', 'def', 'ffwi', 'fm100', 'pdsi', 'pr', 'tmmx', 'vpd', 'vs')
 
 unique_states <- unique(fpa_ll$STATE)
@@ -42,16 +42,16 @@ for (j in stat){
     counter <- 1
     for (k in 1:length(unique_states)) { 
       
-      sub_df <- subset(fpa_ll, fpa_ll$STATE == unique_states[k])
-
       tifs <- check_tifs(j, i)
-  
+      
       if (is.null(tifs)) {
-  
+        
         print(paste0('Skipping ', j, ' ', i))
-  
+        
       } else if (!file.exists(file.path(summaries_dir, paste0('fpa_', i, '_', j, '_summaries.rds')))) {
-  
+        
+        sub_df <- subset(fpa_ll, fpa_ll$STATE == unique_states[k])
+        
         print(paste0('Working on ', counter, " of ", length(unique_states), " for the ", j, ' ', i))
         
         cl <- makeCluster(detectCores())
@@ -63,11 +63,11 @@ for (j in stat){
                                  na.rm = TRUE, fun = 'mean', df = TRUE)
         }
         stopCluster(cl)
-
-
+        
+        
         # ensure that they all have the same length
         stopifnot(all(lapply(extractions, nrow) == nrow(sub_df)))
-  
+        
         # convert to a data frame
         extraction_df <- extractions %>%
           bind_cols %>%
@@ -104,7 +104,7 @@ for (j in stat){
     write_rds(fpa_summaries, summary_name)
     
     # push to S3
-    system('aws s3 sync modeling-human-ignition/data/summary s3://earthlab-modeling-human-ignitions/summary')
+    system('aws s3 sync data/summary s3://earthlab-modeling-human-ignitions/summary')
     
     # creating the final dataframe takes about 150 GB of RAM, this clears the cache so it can be run again
     gc()
