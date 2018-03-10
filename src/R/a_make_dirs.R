@@ -47,6 +47,9 @@ climate_prefix <- file.path(prefix, "climate")
 
 # create direcotires to hold climate summary outputs
 summaries_dir <- file.path(summary_dir, "fpa_climate_summaries")
+summary_mean <- file.path(summaries_dir, "mean")
+summary_95th <- file.path(summaries_dir, "95th")
+summary_numdays95th <- file.path(summaries_dir, "numdays95th")
 
 anthro_dir <- file.path(prefix, "anthro")
 fishnet_path <- file.path(ancillary_dir, "fishnet")
@@ -59,7 +62,8 @@ s3_raw_prefix <- 's3://earthlab-modeling-human-ignitions/raw/'
 # Check if directory exists for all variable aggregate outputs, if not then create
 var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix, summary_dir,
                 fpa_prefix, rails_prefix, pd_prefix, iclus_prefix, climate_prefix,
-                nlcd_prefix,nlcd92_prefix ,nlcd01_prefix ,nlcd06_prefix , elev_prefix, tl_prefix, ancillary_dir, anthro_dir,
-                fishnet_path, processed_dir, summaries_dir, nlcd_pdi_01_prefix, nlcd_pdi_06_prefix,
-                nlcd_pdi_11_prefix)
+                nlcd_prefix,nlcd92_prefix ,nlcd01_prefix ,nlcd06_prefix , elev_prefix,
+                tl_prefix, ancillary_dir, anthro_dir, fishnet_path, processed_dir, summaries_dir,
+                nlcd_pdi_01_prefix, nlcd_pdi_06_prefix, nlcd_pdi_11_prefix, summary_mean,
+                summary_95th, summary_numdays95th)
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
