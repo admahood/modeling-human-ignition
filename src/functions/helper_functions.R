@@ -34,11 +34,12 @@ check_tifs <- function(j, i, ...) {
                     warning(c)
                   }
   )
+  
   # if the length of the tryCatch is greater than one then that indicates there
   # are data in the statistic/variable combination
   if (length(tif) > 1) {
     tif <- list.files(file.path(climate_prefix, j),
-                      pattern = i,
+                      pattern = paste0(i, '_' , rep(1988:2015), "_", j, collapse = "|"),
                       recursive = TRUE,
                       full.names = TRUE) %>%
       Filter(function(x) grepl(".tif", x), .)
@@ -85,7 +86,7 @@ get_climate_lags <- function(fpa_df, climate_df, start_date, time_lag) {
   climate_df <- climate_df %>%
     select('FPA_ID', 'year_month_day', 'value')
   
-  foreach (j = 0:time_lag) %dopar% {
+  for (j in 0:time_lag) {
     require(magrittr)
     require(tidyverse)
     
