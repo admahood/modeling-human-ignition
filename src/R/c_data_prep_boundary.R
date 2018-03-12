@@ -23,19 +23,19 @@ if (!exists("ecoregions")){
 }
 
 # Create raster mask
-# 4k Fishnet
-if (!exists("fishnet_4k")) {
-  if (!file.exists(file.path(fishnet_path, "fishnet_4k.gpkg"))) {
-    fishnet_4k <- sf::st_make_grid(usa_shp, cellsize = 4000, what = 'polygons') %>%
-      sf::st_sf('geometry' = ., data.frame('fishid4k' = 1:length(.))) %>%
+# 1k Fishnet
+if (!exists("fishnet_1k")) {
+  if (!file.exists(file.path(fishnet_path, "fishnet_1k.gpkg"))) {
+    fishnet_1k <- sf::st_make_grid(usa_shp, cellsize = 1000, what = 'polygons') %>%
+      sf::st_sf('geometry' = ., data.frame('fishid1k' = 1:length(.))) %>%
       sf::st_intersection(., st_union(usa_shp))
 
-    sf::st_write(fishnet_4k,
-                 file.path(fishnet_path, "fishnet_4k.gpkg"),
+    sf::st_write(fishnet_1k,
+                 file.path(fishnet_path, "fishnet_1k.gpkg"),
                  driver = "GPKG")
 
     system(paste0("aws s3 cp ",
-                  fishnet_path, "/fishnet_4k.gpkg ",
-                  s3_anc_prefix, "fishnet/fishnet_4k.gpkg"))
+                  fishnet_path, "/fishnet_1k.gpkg ",
+                  s3_anc_prefix, "fishnet/fishnet_1k.gpkg"))
   }
 }
