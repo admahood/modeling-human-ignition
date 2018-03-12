@@ -49,23 +49,27 @@ for (j in stat){
 
     } else if (!file.exists(file.path(summaries_dir, j, paste0('fpa_', i, '_', j, '_summaries.rds')))) {
 
-      for (k in 1:length(unique_states)[1]) {
+      # subset the fpa-fod data based on state grouping variable
+      # this increases the speed of this function and only needs ~40GB of memory max.
+      for (k in 1:length(unique_states)) {
 
+        # create a subdataframe based on state subset
         sub_df <- subset(fpa_ll, fpa_ll$STATE == unique_states[k])
-
 
         print(paste0('Working on ', counter, " of ", length(unique_states), " for the ", j, ' ', i))
 
+        # setup parallel environment
         cl <- makeCluster(detectCores())
         registerDoParallel(cl)
 
+        # extract climate time series data based on point or polygon locations.
+        # this extract is pulling in point data, so fun = mean does not matter
         extractions <- foreach (i = tifs) %dopar% {
 
           res <- raster::extract(raster::stack(i), sub_df,
                                  na.rm = TRUE, fun = 'mean', df = TRUE)
         }
         stopCluster(cl)
-
 
         # ensure that they all have the same length
         stopifnot(all(lapply(extractions, nrow) == nrow(sub_df)))
@@ -90,9 +94,12 @@ for (j in stat){
           mutate(day = '01',
                  year_month_day = as.Date(paste(year, month, day, sep='-')))
 
+        # reduce the size of the dataframe to be joined during the get_climate_lags
         sub_df <- sub_df %>%
           dplyr::select(FPA_ID, year_month_day)
 
+        # run get_climate_lags for the prior 24 months given a fpa-fod fire event
+        # this will iteratively populate a list given each state grouping variable
         fpa_summaries[[k]] <- get_climate_lags(sub_df, extraction_df, sub_df$year_month_day, time_lag = 24) %>%
           dplyr::select(-year_month_day, - ymd_lagged)
 
@@ -100,6 +107,7 @@ for (j in stat){
       }
 
       if (length(fpa_summaries) > 0) {
+        # rbinds the iteratively populated list and creates a cohesive dataframe
         fpa_summaries <- do.call(rbind, fpa_summaries) # Convert to data frame format
 
         # save the final cleaned climate extractions joined with the fpa-fod database
