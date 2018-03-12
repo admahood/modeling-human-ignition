@@ -101,7 +101,7 @@ for (j in stat){
         # run get_climate_lags for the prior 24 months given a fpa-fod fire event
         # this will iteratively populate a list given each state grouping variable
         fpa_summaries[[k]] <- get_climate_lags(sub_df, extraction_df, sub_df$year_month_day, time_lag = 24) %>%
-          dplyr::select(-year_month_day, - ymd_lagged)
+          dplyr::select(-year_month_day)
 
         counter <- counter + 1
       }
