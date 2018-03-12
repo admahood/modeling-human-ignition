@@ -91,7 +91,7 @@ get_climate_lags <- function(fpa_df, climate_df, start_date, time_lag) {
     require(tidyverse)
 
     # create a lagged data year column that can be joined and extracted upon
-    fpa_df_lagged[, paste0(variable, '_lag_', j)]  <- fpa_df %>%
+    fpa_df[, paste0(variable, '_lag_', j)]  <- fpa_df %>%
       dplyr::mutate(ymd_lagged = lag_date(start_date, j)) %>%
 
       # the meat and potatoes.  This joins the fpa and climate data based on
@@ -99,7 +99,7 @@ get_climate_lags <- function(fpa_df, climate_df, start_date, time_lag) {
       left_join(., climate_df, by = c('FPA_ID', 'ymd_lagged' = 'year_month_day')) %>%
       dplyr::select(value)
   }
-  return(fpa_df_lagged)
+  return(fpa_df)
 }
 
 
