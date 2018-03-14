@@ -130,13 +130,9 @@ extraction_df <- extractions %>%
   mutate(FPA_ID = data.frame(fpa_clean)$FPA_ID) %>%
   dplyr::select(-starts_with('ID'))
 
-# join the extraction_df to the full fpa-fod data
-extraction_df <- extraction_df %>%
-  left_join(fpa_clean, ., by = 'FPA_ID')
-
-# save processed/cleaned monthly extractions
-st_write(extraction_df, file.path(processed_dir, 'fpa_clean.gpkg'), delete_layer = TRUE)
+# save processed/cleaned terrain extractions
+write_rds(extraction_df, file.path(processed_dir, 'terrain_extractions.rds'))
 
 system(paste0("aws s3 sync ",
-              processed_dir, " ",
+              terrain_dir, " ",
               s3_proc_prefix))
