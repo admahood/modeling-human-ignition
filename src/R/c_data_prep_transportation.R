@@ -1,5 +1,43 @@
 
 # Import ancillary data
+# Railrods
+if (!exists("rail_rds")) {
+  if (!file.exists(file.path(processed_dir, "rail_rds.gpkg"))) {
+    rail_rds <- sf::st_read(dsn = file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb'), layer = 'Rails') %>%
+      sf::st_transform(p4string_ea) %>%
+      sf::st_intersection(., usa_shp) %>%
+      dplyr::mutate(bool_rrds = 1)
+
+    sf::st_write(rail_rds,
+                 file.path(anthro_dir, "rail_rds.gpkg"),
+                 driver = "GPKG",
+                 update=TRUE,
+                 delete_dsn=TRUE)
+  } else {
+
+    rail_rds <- sf::st_read(dsn = file.path(processed_dir, "rail_rds.gpkg"))
+  }
+}
+
+
+# Power transmission lines
+if (!exists("tl")) {
+  if (!file.exists(file.path(processed_dir, "power_lines.gpkg"))) {
+    tl <- sf::st_read(dsn = file.path(tl_prefix, 'Electric_Power_Transmission_Lines.shp')) %>%
+      sf::st_transform(p4string_ea) %>%
+      sf::st_intersection(., usa_shp) %>%
+      dplyr::mutate(bool_tl = 1) %>%
+      dplyr::filter(st_is(., c("LINESTRING")))
+
+    sf::st_write(tl,
+                 file.path(anthro_dir, "power_lines.gpkg"),
+                 driver = "GPKG")
+  } else {
+
+    tl <- sf::st_read(dsn = file.path(processed_dir, "power_lines.gpkg"))
+  }
+}
+
 # Primary Roads
 if (!exists("primary_rds")) {
   if (!file.exists(file.path(processed_dir, "primary_rds.gpkg"))) {
@@ -83,38 +121,6 @@ if (!exists("all_rds")) {
 
     sf::st_write(all_rds,
                  file.path(processed_dir, "all_rds.gpkg"),
-                 driver = "GPKG")
-  }
-}
-
-# Railrods
-if (!exists("rail_rds")) {
-  if (!file.exists(file.path(processed_dir, "rail_rds.gpkg"))) {
-    rail_rds <- sf::st_read(dsn = file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb'), layer = 'Rails') %>%
-      sf::st_transform(p4string_ea) %>%
-      sf::st_intersection(., usa_shp) %>%
-      dplyr::mutate(bool_rrds = 1)
-
-    sf::st_write(rail_rds,
-                 file.path(anthro_dir, "rail_rds.gpkg"),
-                 driver = "GPKG",
-                 update=TRUE,
-                 delete_dsn=TRUE)
-  }
-}
-
-
-# Power transmission lines
-if (!exists("tl")) {
-  if (!file.exists(file.path(processed_dir, "power_lines.gpkg"))) {
-    tl <- sf::st_read(dsn = file.path(tl_prefix, 'Electric_Power_Transmission_Lines.shp')) %>%
-      sf::st_transform(p4string_ea) %>%
-      sf::st_intersection(., usa_shp) %>%
-      dplyr::mutate(bool_tl = 1) %>%
-      dplyr::filter(st_is(., c("LINESTRING")))
-
-    sf::st_write(tl,
-                 file.path(anthro_dir, "power_lines.gpkg"),
                  driver = "GPKG")
   }
 }
