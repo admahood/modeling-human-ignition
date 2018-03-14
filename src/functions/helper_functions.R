@@ -142,6 +142,67 @@ mosaic_rasters <- function(files){
   return(mos)
 }
 
+length_in_poly <- function(spatial_lines, fishnet, variable){
+
+  registerDoParallel(detectCores())
+
+  fishnet$density <- 0
+
+  return( foreach (i = 1:nrow(fishnet), .combine = rbind) %dopar% {
+
+    x <- st_intersection(spatial_lines, fishnet[i,])
+
+    if(nrow(x) > 0){
+      fishnet$density <-  sum(st_length(x))/st_area(fishnet[i,])
+
+    } else{
+
+      fishnet$density[i] <-0
+    }
+  }
+  )
+  stopCluster()
+}
+
+length_in_poly <- function(spatial_lines, fishnet, ncores, state_id, net_id){
+
+  registerDoParallel(ncores)
+
+  unique_states <- unique(fishnet[[state_id]])
+
+  for (k in 1:length(unique_states)) {
+
+    require(magrittr)
+    require(tidyverse)
+    require(sf)
+
+    # create a subdataframe based on state subset
+    sub_fish <- subset(fishnet, fishnet[[state_id]] == unique_states[k]) %>%
+      mutate(length_km2 = 0,
+             pixel_area_km2 = 0,
+             density = 0)
+    sub_lines <- subset(spatial_lines, spatial_lines[[state_id]] == unique_states[k])
+
+    unique_id <- unique(sub_fish[[net_id]])
+
+    for (i in unique_id) {
+      x <- st_intersection(sub_lines, subset(sub_fish, sub_fish[[net_id]] == unique_id[i]))
+
+      sub_fish[[k]] <- sub_fish %>%
+        group_by(hexid) %>%
+        summarize(length_km2 = if_else(nrow(x) > 0,
+                                 sum(st_length(x)) * 0.000001, 0),
+               pixel_area_km2 = if_else(nrow(x) > 0,
+                               as.numeric(st_area(st_geometry(x[i,]))) * 0.000001, 0),
+               density = length_km2/pixel_area_km2)
+      }
+    # rbinds the iteratively populated list and creates a cohesive dataframe
+    sub_df <- do.call(rbind, sub_fish) # Convert to data frame format
+    return(sub_fish)
+  }
+  stopCluster()
+}
+
 # Functions for `d_rasterize_anthro.R` ------------------------------------
 
 # This function splits shapefile based on the number of cores for parallel rasterization
