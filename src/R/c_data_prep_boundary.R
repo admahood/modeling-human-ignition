@@ -7,6 +7,7 @@ if (!exists("usa_shp")){
                        outname = "usa") %>%
     sf::st_transform(p4string_ea) %>%
     dplyr::filter(!STUSPS %in% c("HI", "AK", "PR"))
+  usa_shp$STUSPS <- droplevels(usa_shp$STUSPS)
 }
 
 # Download and import the Level 3 Ecoregions data
@@ -23,19 +24,40 @@ if (!exists("ecoregions")){
 }
 
 # Create raster mask
-# 1k Fishnet
-if (!exists("fishnet_1k")) {
-  if (!file.exists(file.path(fishnet_path, "fishnet_1k.gpkg"))) {
-    fishnet_1k <- sf::st_make_grid(usa_shp, cellsize = 1000, what = 'polygons') %>%
-      sf::st_sf('geometry' = ., data.frame('fishid1k' = 1:length(.))) %>%
+# 4k Fishnet
+if (!exists("fishnet_4k")) {
+  if (!file.exists(file.path(fishnet_path, "fishnet_4k.gpkg"))) {
+    fishnet_4k <- sf::st_make_grid(usa_shp, cellsize = 4000, what = 'polygons') %>%
+      sf::st_sf('geometry' = ., data.frame('fishid4k' = 1:length(.))) %>%
       sf::st_intersection(., st_union(usa_shp))
 
-    sf::st_write(fishnet_1k,
-                 file.path(fishnet_path, "fishnet_1k.gpkg"),
+    sf::st_write(fishnet_4k,
+                 file.path(fishnet_path, "fishnet_4k.gpkg"),
                  driver = "GPKG")
 
-    system(paste0("aws s3 cp ",
-                  fishnet_path, "/fishnet_1k.gpkg ",
-                  s3_anc_prefix, "fishnet/fishnet_1k.gpkg"))
+    system(paste0("aws s3 sync ",
+                  fishnet_path, "/fishnet_4k.gpkg ",
+                  s3_anc_prefix, "fishnet/fishnet_4k.gpkg"))
+  }
+}
+
+if (!exists("hexnet_4k")) {
+  if (!file.exists(file.path(fishnet_path, "hexnet_4k.gpkg"))) {
+    hex_points <- spsample(as(usa_shp, 'Spatial'), type = "hexagonal", cellsize = 4000)
+    hex_grid <- HexPoints2SpatialPolygons(hex_points, dx = 4000)
+    hexnet_4k <- st_as_sf(hex_grid) %>%
+      mutate(hexid4k = row_number()) %>%
+      st_intersection(., st_union(usa_shp))
+
+    sf::st_write(hexnet_4k,
+                 file.path(fishnet_path, "hexnet_4k.gpkg"),
+                 driver = "GPKG")
+
+    system(paste0("aws s3 sync ",
+                  fishnet_path, "/hexnet_4k.gpkg ",
+                  s3_anc_prefix, "fishnet/hexnet_4k.gpkg"))
+  } else {
+    hexnet_4k <- sf::st_read(file.path(fishnet_path, "hexnet_4k.gpkg"))
+
   }
 }
