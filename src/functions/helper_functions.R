@@ -1,3 +1,13 @@
+# General Helper functions
+
+faster_as_tibble <- function(x) {
+  structure(x, class = c("tbl_df", "tbl", "data.frame", "sfc"), row.names = as.character(seq_along(x[[1]])))
+}
+
+split_fast_tibble <- function (x, f, drop = FALSE, ...) {
+  lapply(split(x = seq_len(nrow(x)), f = f,  ...),
+         function(ind) faster_as_tibble(lapply(x, "[", ind)))
+}
 
 # functions for 4_fpa_climate_summaries.R -------------------------------
 
@@ -142,15 +152,6 @@ mosaic_rasters <- function(files){
   return(mos)
 }
 
-faster_as_tibble <- function(x) {
-  structure(x, class = c("tbl_df", "tbl", "data.frame", "sfc"), row.names = as.character(seq_along(x[[1]])))
-}
-
-split_fast_tibble <- function (x, f, drop = FALSE, ...) {
-  lapply(split(x = seq_len(nrow(x)), f = f,  ...),
-         function(ind) faster_as_tibble(lapply(x, "[", ind)))
-}
-
 length_in_poly <- function(spatial_lines, fishnet){
 
   registerDoParallel(detectCores())
@@ -173,42 +174,24 @@ length_in_poly <- function(spatial_lines, fishnet){
   stopCluster()
 }
 
-# length_in_poly <- function(spatial_lines, fishnet, ncores, state_id, net_id){
-subset_by_state <- function(fishnet, ncores, state_id){
-  
-  # registerDoParallel(ncores)
-
-  unique_states <- unique(fishnet[[state_id]])
-
-  for (k in 1:length(unique_states)) {
-
-    require(magrittr)
-    require(tidyverse)
-    require(sf)
-
-    # create a subdataframe based on state subset
-    sub_fish <- subset(fishnet, fishnet[[state_id]] == unique_states[k]) %>%
-      mutate(density = 0)
-    # sub_lines <- subset(spatial_lines, spatial_lines[[state_id]] == unique_states[k])
-
-    # unique_id <- unique(sub_fish[[net_id]])
-    # 
-    # for (i in unique_id) {
-    #   x <- st_intersection(sub_lines, subset(sub_fish, sub_fish[[net_id]] == unique_id[i]))
-    # 
-    #   sub_fish[[k]] <- sub_fish %>%
-    #     group_by(hexid) %>%
-    #     summarize(length_km2 = if_else(nrow(x) > 0,
-    #                              sum(st_length(x)) * 0.000001, 0),
-    #            pixel_area_km2 = if_else(nrow(x) > 0,
-    #                            as.numeric(st_area(st_geometry(x[i,]))) * 0.000001, 0),
-    #            density = length_km2/pixel_area_km2)
-    #   }
-    # rbinds the iteratively populated list and creates a cohesive dataframe
-    # sub_df <- do.call(rbind, sub_fish) # Convert to data frame format
-    return(sub_fish)
-    }
-  }
+# Then interpolate for each month and year from 1984 - 2015
+# using a simple linear sequence
+impute_density <- function(df) {
+  year_seq <- min(df$year):max(df$year)
+  predict_seq <- seq(min(df$year),
+                     max(df$year),
+                     length.out = (length(year_seq) - 1) * 12)
+  preds <- approx(x = df$year,
+                  y = df$housing_density,
+                  xout = predict_seq)
+  res <- as_tibble(preds) %>%
+    rename(t = x, housing_density = y) %>%
+    mutate(year = floor(t),
+           month = rep(1:12, times = length(year_seq) - 1)) %>%
+    filter(year < 2030)
+  res$FPA_ID <- unique(df$FPA_ID)
+  res
+}
 
 # Functions for `d_rasterize_anthro.R` ------------------------------------
 
