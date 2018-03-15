@@ -17,14 +17,6 @@ length_in_poly <- function(spatial_lines, fishnet){
 fish_length
 }
 
-faster_as_tibble <- function(x) {
-  structure(x, class = c("tbl_df", "tbl", "data.frame", "sfc"), row.names = as.character(seq_along(x[[1]])))
-}
-
-split_fast_tibble <- function (x, f, drop = FALSE, ...) {
-  lapply(split(x = seq_len(nrow(x)), f = f,  ...),
-         function(ind) faster_as_tibble(lapply(x, "[", ind)))
-}
 
 # Create railroad density
 if (!file.exists(file.path(processed_dir, 'rail_rds_density_hex4k.gpkg'))) {
