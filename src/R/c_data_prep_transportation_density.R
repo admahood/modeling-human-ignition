@@ -1,48 +1,53 @@
 
 # Create railroad density
-if (!file.exists(file.path(processed_dir, 'rail_rds_density_hex4k.gpkg'))) {
+#if (!file.exists(file.path(processed_dir, 'rail_rds_density_hex4k.gpkg'))) {
+  mask_hex <- hexnet_4k %>%
+    filter(STUSPS %in% c('RI', 'CT'))
+  mask_rails <- rail_rds %>%
+    filter(STUSPS %in% c('RI', 'CT'))
 
-  sub_hexnet <- split_fast_tibble(hexnet_4k, hexnet_4k$STUSPS) %>%
+  sub_hexnet <- split_fast_tibble(mask_hex, mask_hex$STUSPS) %>%
     lapply(st_as_sf)
-  sub_rails <- split_fast_tibble(rail_rds, rail_rds$STUSPS) %>%
-    lapply(st_as_sf)
-  
-  
-length_in_poly <- function(spatial_lines, fishnet) {
-  
-  fishnet_tmp <- st_as_sf(do.call(rbind, fishnet_tmp))
-  
+
+length_in_poly <- function(fishnet, spatial_lines) {
+  require(sf)
+  require(tidyverse)
+  require(magrittr)
+
   fish_length <- list()
-  
-  for (i in 1:nrow(fishnet_tmp)) {
-   
-   split_lines_tmp <-  st_as_sf(do.call(rbind, spatial_lines_tmp)) %>%
+
+  for (i in 1:nrow(fishnet)) {
+
+   split_lines <- spatial_lines %>%
     st_cast(., "MULTILINESTRING", group_or_split = FALSE) %>%
-    #st_difference(., st_buffer(st_intersection(., fishnet_tmp), dist = 0)) %>%
-    st_intersection(., fishnet_tmp[i, ]) %>%
-    dplyr::select(LINEARID, hexid4k, STUSPS, geometry) %>%
+    st_intersection(., fishnet[i, ]) %>%
     mutate(lineid = row_number())
 
-  fish_length[[i]] <- split_lines_tmp %>%
+   fish_length[[i]] <- split_lines %>%
     mutate(length = sum(st_length(.)))
   }
 
   fish_length <-  do.call(rbind, fish_length) %>%
     group_by(hexid4k) %>%
-    summarize(length = sum(length)) 
-  
-  fishnet_tmp <- fishnet_tmp%>%
+    summarize(length = sum(length))
+
+  fishnet <- fishnet%>%
     st_join(., fish_length, join = st_intersects) %>%
     mutate(hexid4k = hexid4k.x,
            length = ifelse(is.na(length), 0, length),
            pixel_area = as.numeric(st_area(geom)),
            density = length/pixel_area) %>%
-    dplyr::select(hexid4k, STUSPS, length, pixel_area, density, geom) 
-  fishnet_tmp
+  fishnet
   }
 
-  
-  
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfExport(list = c("mask_rails"))
+
+extractions <- sfLapply(sub_hexnet,
+         fun = length_in_poly,
+         spatial_lines = mask_rails)
+sfStop()
+
   ###
 
 
