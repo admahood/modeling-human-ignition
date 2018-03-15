@@ -1,31 +1,53 @@
-length_in_poly <- function(spatial_lines, fishnet){
-  spatial_lines <- sub_rails['RI']
-  fishnet <- sub_hexnet['RI']
-
-  fishnet <- st_as_sf(do.call(rbind, fishnet))
-
-  split_lines <-  st_as_sf(do.call(rbind, spatial_lines)) %>%
-    st_cast(., "MULTILINESTRING", group_or_split=FALSE) %>%
-    st_difference(., st_buffer(st_intersection(., st_union(test_fish)), dist=1e-12))
-
-  fish_intersection <- st_intersection(split_lines, fishnet)
-
-  fish_length <- fishnet %>%
-    mutate(length = split(., .$hexid4k)) %>%
-    map(sum(st_length(fish_intersection))))
-
-fish_length
-}
-
 
 # Create railroad density
 if (!file.exists(file.path(processed_dir, 'rail_rds_density_hex4k.gpkg'))) {
 
-  sub_hexnet <- split_fast_tibble(hexnet_4k, hexnet_4k$STUSPS)
-  sub_rails <- split_fast_tibble(rail_rds, rail_rds$STUSPS)
+  sub_hexnet <- split_fast_tibble(hexnet_4k, hexnet_4k$STUSPS) %>%
+    lapply(st_as_sf)
+  sub_rails <- split_fast_tibble(rail_rds, rail_rds$STUSPS) %>%
+    lapply(st_as_sf)
+  
+  
+length_in_poly <- function(spatial_lines, fishnet) {
+  
+  fishnet_tmp <- st_as_sf(do.call(rbind, fishnet_tmp))
+  
+  fish_length <- list()
+  
+  for (i in 1:nrow(fishnet_tmp)) {
+   
+   split_lines_tmp <-  st_as_sf(do.call(rbind, spatial_lines_tmp)) %>%
+    st_cast(., "MULTILINESTRING", group_or_split = FALSE) %>%
+    #st_difference(., st_buffer(st_intersection(., fishnet_tmp), dist = 0)) %>%
+    st_intersection(., fishnet_tmp[i, ]) %>%
+    dplyr::select(LINEARID, hexid4k, STUSPS, geometry) %>%
+    mutate(lineid = row_number())
 
-  rail_rds_density$density <- length_in_poly(spatial_lines = rail_rds,
-                                             fishnet = sub_hexnet[1:2])
+  fish_length[[i]] <- split_lines_tmp %>%
+    mutate(length = sum(st_length(.)))
+  }
+
+  fish_length <-  do.call(rbind, fish_length) %>%
+    group_by(hexid4k) %>%
+    summarize(length = sum(length)) 
+  
+  fishnet_tmp <- fishnet_tmp%>%
+    st_join(., fish_length, join = st_intersects) %>%
+    mutate(hexid4k = hexid4k.x,
+           length = ifelse(is.na(length), 0, length),
+           pixel_area = as.numeric(st_area(geom)),
+           density = length/pixel_area) %>%
+    dplyr::select(hexid4k, STUSPS, length, pixel_area, density, geom) 
+  fishnet_tmp
+  }
+
+  
+  
+  ###
+
+
+
+
 
 
   length_in_poly <- function(spatial_lines, fishnet, grouping_var){
