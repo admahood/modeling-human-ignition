@@ -1,52 +1,42 @@
-length_in_poly <- function(spatial_lines, fishnet){
-  spatial_lines <- sub_rails['RI']
-  fishnet <- sub_hexnet['RI']
 
-  fishnet <- st_as_sf(do.call(rbind, fishnet))
+
 
   split_lines <-  st_as_sf(do.call(rbind, spatial_lines)) %>%
-    st_cast(., "MULTILINESTRING", group_or_split=FALSE) %>%
-    st_difference(., st_buffer(st_intersection(., st_union(test_fish)), dist=1e-12))
+    st_cast(., "MULTILINESTRING", group_or_split = FALSE) %>%
+    st_difference(., st_buffer(st_intersection(., fishnet), dist = 0)) #creates line segments that are unique to each polygon
 
-  fish_intersection <- st_intersection(split_lines, fishnet)
-
-  fish_length <- fishnet %>%
-    mutate(length = split(., .$hexid4k)) %>%
-    map(sum(st_length(fish_intersection))))
+  fish_length <- split_lines %>%
+    group_by(hexid4k) %>%
+    summarize(length = sum(st_length(.)))
 
 fish_length
+
+
+
+length_in_poly <- function(unique_states, input_grid, input_line, grouping_var) {
+
+  unique_states <- unique(input_grid[[grouping_var]])
+
+  grid_list <- split_fast_tibble(input_grid, input_grid[[grouping_var]])
+  line_list <- split_fast_tibble(sub_line, sub_line[[grouping_var]])
+
+  for (i in unique_states) {
+
+  require(tidyverse)
+  require(lubridate)
+
+  # create a subdataframe based on state subset
+    sub_grid <- grid_list[k] %>%
+      st_as_sf(bind_rows(.))
+
+    sub_line <- line_list[k] %>%
+      st_as_sf(bind_rows(.))
+
+
+  }
 }
-
-
-# Create railroad density
-if (!file.exists(file.path(processed_dir, 'rail_rds_density_hex4k.gpkg'))) {
-
-  sub_hexnet <- split_fast_tibble(hexnet_4k, hexnet_4k$STUSPS)
-  sub_rails <- split_fast_tibble(rail_rds, rail_rds$STUSPS)
-
   rail_rds_density$density <- length_in_poly(spatial_lines = rail_rds,
                                              fishnet = sub_hexnet[1:2])
 
 
-  length_in_poly <- function(spatial_lines, fishnet, grouping_var){
-    spatial_lines <- rail_rds['RI']
-    fishnet <- sub_hexnet['RI']
-    grouping_var <- 'STUSPS'
-
-    list_length <- lapply(fishnet, function(x) dim(x))[[1]][1]
-
-    fishnet %>%
-      mutate(bb = split(., 1:list_length) %>% map(st_bbox))
-
-    sub_out <- fishnet %>%
-      map(~mutate(bb = split(., FPA_ID) %>% map(st_intersection(spatial_lines))))
-
-    rowwise() %>%
-      st_intersection(spatial_lines) %>%
-      group_by(grouping_var) %>%
-      summarize(length_km2 = sum(st_length(x)) * 0.000001,
-                pixel_area_km2 = as.numeric(st_area(st_geometry(x[i,]))) * 0.000001,
-                density = length_km2/pixel_area_km2)
-
-    return(sub_out)
-  }
+ 
