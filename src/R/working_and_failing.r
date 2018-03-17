@@ -1,42 +1,54 @@
 
+unique_states <- unique(hexnet_4k$STUSPS)
 
+grid_list <- split_fast_tibble(hexnet_4k, hexnet_4k$STUSPS)
+line_list <- split_fast_tibble(rail_rds, rail_rds$STUSPS)
 
-  split_lines <-  st_as_sf(do.call(rbind, spatial_lines)) %>%
-    st_cast(., "MULTILINESTRING", group_or_split = FALSE) %>%
-    st_difference(., st_buffer(st_intersection(., fishnet), dist = 0)) #creates line segments that are unique to each polygon
-
-  fish_length <- split_lines %>%
-    group_by(hexid4k) %>%
-    summarize(length = sum(st_length(.)))
-
-fish_length
-
-
-
-length_in_poly <- function(unique_states, input_grid, input_line, grouping_var) {
-
-  unique_states <- unique(input_grid[[grouping_var]])
-
-  grid_list <- split_fast_tibble(input_grid, input_grid[[grouping_var]])
-  line_list <- split_fast_tibble(sub_line, sub_line[[grouping_var]])
-
-  for (i in unique_states) {
-
+for (k in unique_states) {
   require(tidyverse)
   require(lubridate)
 
   # create a subdataframe based on state subset
-    sub_grid <- grid_list[k] %>%
-      st_as_sf(bind_rows(.))
-
-    sub_line <- line_list[k] %>%
-      st_as_sf(bind_rows(.))
-
-
+  sub_grid <- grid_list[k] %>%
+    do.call(rbind, .) %>%
+    st_as_sf(.)
+  
+  sub_line <- line_list[k] %>%
+    do.call(rbind, .) %>%
+    st_as_sf(.)
+  
+  sub_line <- sub_line %>%
+    group_by(STATEFP) %>%
+    summarise() 
+  
+  cl <- makeCluster(detectCores())
+  registerDoParallel(cl)
+  
+  fish_length <- foreach (i = 1:nrow(sub_grid), .combine = rbind) %dopar% {
+    require(tidyverse)
+    require(sf)
+    
+    split_lines <- sub_line %>%
+      st_cast(., "MULTILINESTRING", group_or_split = FALSE) %>%
+      st_difference(., st_buffer(st_intersection(., sub_grid[i,]), dist = 1e-12)) %>%
+      mutate(length = sum(st_length(.)))
+    
+    return(split_lines)
   }
-}
-  rail_rds_density$density <- length_in_poly(spatial_lines = rail_rds,
-                                             fishnet = sub_hexnet[1:2])
+  
+  stopCluster(cl)
+
+  sub_grid <- sub_grid %>%
+    st_join(., fish_length, join = st_intersects) %>%
+    mutate(hexid4k = hexid4k.x,
+           length = ifelse(is.na(length), 0, length),
+           pixel_area = as.numeric(st_area(geom)),
+           density = length/pixel_area,
+           STUSPS = STUSPS.x) %>%
+    dplyr::select(hexid4k, STUSPS, length, pixel_area, density)
+  return(sub_grid)
+  }
+
 
 
  
