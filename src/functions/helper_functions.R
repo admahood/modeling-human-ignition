@@ -163,7 +163,7 @@ get_density <- function(unique_groups, list_of_grids, list_of_lines) {
   cl <- makeCluster(detectCores())
   registerDoParallel(cl)
 
-  foreach (k = unique_groups, .combine = rbind) %dopar% {
+  sub_grid <- foreach (k = unique_groups, .combine = rbind) %dopar% {
 
     require(tidyverse)
     require(lubridate)
@@ -191,7 +191,6 @@ get_density <- function(unique_groups, list_of_grids, list_of_lines) {
     sub_grid <- sub_grid %>%
       sf::st_join(., single_lines_hexid, join = st_intersects) %>%
       dplyr::mutate(hexid4k = hexid4k.x,
-             length_line = length_line.y,
              length_line = ifelse(is.na(length_line), 0, length_line),
              pixel_area = as.numeric(st_area(geom)),
              density = length_line/pixel_area,
@@ -200,6 +199,7 @@ get_density <- function(unique_groups, list_of_grids, list_of_lines) {
     return(sub_grid)
   }
   stopCluster(cl)
+  return(sub_grid)
 }
 
 # Then interpolate for each month and year from 1984 - 2015
