@@ -2,7 +2,7 @@
 # Import ancillary data
 # Railrods
 if (!exists("rail_rds")) {
-  if (!file.exists(file.path(transportation_dir, "rail_rds.gpkg"))) {
+  if (!file.exists(file.path(transportation_processed_dir, "rail_rds.gpkg"))) {
     rail_rds <- sf::st_read(dsn = file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb'), layer = 'Rails') %>%
       sf::st_transform(p4string_ea) %>%
       sf::st_intersection(., usa_shp) %>%
@@ -15,14 +15,14 @@ if (!exists("rail_rds")) {
                  delete_dsn=TRUE)
   } else {
 
-    rail_rds <- sf::st_read(dsn = file.path(transportation_dir, "rail_rds.gpkg"))
+    rail_rds <- sf::st_read(dsn = file.path(transportation_processed_dir, "rail_rds.gpkg"))
   }
 }
 
 
 # Power transmission lines
 if (!exists("tl")) {
-  if (!file.exists(file.path(transportation_dir, "power_lines.gpkg"))) {
+  if (!file.exists(file.path(transportation_processed_dir, "power_lines.gpkg"))) {
     tl <- sf::st_read(dsn = file.path(tl_prefix, 'Electric_Power_Transmission_Lines.shp')) %>%
       sf::st_transform(p4string_ea) %>%
       sf::st_intersection(., usa_shp) %>%
@@ -34,13 +34,13 @@ if (!exists("tl")) {
                  driver = "GPKG")
   } else {
 
-    tl <- sf::st_read(dsn = file.path(transportation_dir, "power_lines.gpkg"))
+    tl <- sf::st_read(dsn = file.path(transportation_processed_dir, "power_lines.gpkg"))
   }
 }
 
 # Primary Roads
 if (!exists("primary_rds")) {
-  if (!file.exists(file.path(transportation_dir, "primary_rds.gpkg"))) {
+  if (!file.exists(file.path(transportation_processed_dir, "primary_rds.gpkg"))) {
     if (!exists("rds")) {
       rds <- sf::st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
     }
@@ -52,17 +52,17 @@ if (!exists("primary_rds")) {
       dplyr::mutate(bool_prds = 1)
 
     sf::st_write(primary_rds,
-                 file.path(transportation_dir, "primary_rds.gpkg"),
+                 file.path(transportation_processed_dir, "primary_rds.gpkg"),
                  driver = "GPKG")
   } else {
 
-    primary_rds <- sf::st_read(dsn = file.path(transportation_dir, "primary_rds.gpkg"))
+    primary_rds <- sf::st_read(dsn = file.path(transportation_processed_dir, "primary_rds.gpkg"))
   }
 }
 
 # Secondary roads
 if (!exists("secondary_rds")) {
-  if (!file.exists(file.path(transportation_dir, "secondary_rds.gpkg"))) {
+  if (!file.exists(file.path(transportation_processed_dir, "secondary_rds.gpkg"))) {
     if (!exists("rds")) {
       rds <- sf::st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
     }
@@ -75,17 +75,17 @@ if (!exists("secondary_rds")) {
 
 
     sf::st_write(secondary_rds,
-                 file.path(transportation_dir, "secondary_rds.gpkg"),
+                 file.path(transportation_processed_dir, "secondary_rds.gpkg"),
                  driver = "GPKG")
   } else {
 
-    secondary_rds <- sf::st_read(dsn = file.path(transportation_dir, "secondary_rds.gpkg"))
+    secondary_rds <- sf::st_read(dsn = file.path(transportation_processed_dir, "secondary_rds.gpkg"))
   }
 }
 
 # Tertiary roads
 if (!exists("tertiary_rds")) {
-  if (!file.exists(file.path(transportation_dir, "tertiary_rds.gpkg"))) {
+  if (!file.exists(file.path(transportation_processed_dir, "tertiary_rds.gpkg"))) {
     if (!exists("rds")) {
       rds <- sf::st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
     }
@@ -97,18 +97,18 @@ if (!exists("tertiary_rds")) {
       dplyr::mutate(bool_trds = 1)
 
     sf::st_write(secondary_rds,
-                 file.path(transportation_dir, "tertiary_rds.gpkg"),
+                 file.path(transportation_processed_dir, "tertiary_rds.gpkg"),
                  driver = "GPKG")
 
   } else {
 
-    tertiary_rds <- sf::st_read(dsn = file.path(transportation_dir, "tertiary_rds.gpkg"))
+    tertiary_rds <- sf::st_read(dsn = file.path(transportation_processed_dir, "tertiary_rds.gpkg"))
   }
 }
 
 # All major roads
 if (!exists("all_rds")) {
-  if (!file.exists(file.path(transportation_dir, "all_rds.gpkg"))) {
+  if (!file.exists(file.path(transportation_processed_dir, "all_rds.gpkg"))) {
     if (!exists("rds")) {
       rds <- sf::st_read(dsn = file.path(roads_prefix, "tlgdb_2015_a_us_roads.gdb"), layer = 'Roads')
     }
@@ -120,7 +120,7 @@ if (!exists("all_rds")) {
       dplyr::mutate(bool_ards = 1)
 
     sf::st_write(all_rds,
-                 file.path(transportation_dir, "all_rds.gpkg"),
+                 file.path(transportation_processed_dir, "all_rds.gpkg"),
                  driver = "GPKG")
   }
 }
