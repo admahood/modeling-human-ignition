@@ -4,46 +4,39 @@
 # orignially grouped by FPA id but 3k polygons is a lot easier to compute than 1.8M fire points
 
 if (!exists("pop_den")) {
-  if (!file.exists(file.path(anthro_proc_dir, "pop_den_long.gpkg"))){
-    if (!file.exists(file.path(anthro_proc_dir, "pop_den.gpkg"))){
+  if (!file.exists(file.path(anthro_proc_dir, "pop_den.gpkg"))){
 
-      pop_den <- st_read(file.path(pd_prefix, 'us_pbg00_2007.gdb')) %>%
-        select(PBG00, HDEN90:HDEN20) %>%
-        st_transform(st_crs(usa_shp)) %>%
-        st_join(., usa_shp, join = st_intersects)
+    pop_den <- st_read(file.path(pd_prefix, 'us_pbg00_2007.gdb')) %>%
+      select(PBG00, HDEN90:HDEN20) %>%
+      st_transform(st_crs(usa_shp)) %>%
+      st_join(., usa_shp, join = st_intersects)
 
-      fpa_overlay <- st_intersects(fpa_clean, pop_den)
+    fpa_overlay <- st_intersects(fpa_clean, pop_den)
 
-      pop_den <- pop_den[unlist(fpa_overlay), ]
+    pop_den <- pop_den[unlist(fpa_overlay), ]
 
-      sf::st_write(pop_den, file.path(anthro_proc_dir, "pop_den.gpkg"), driver = "GPKG")
-
-      system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
-
-    } else {
-
-      pop_den <- st_read(file.exists(file.path(processed_dir, "pop_den.gpkg")))
-    }
-
-    pop_den <- pop_den %>%
-      dplyr::select(PBG00, STUSPS, HDEN90, HDEN00, HDEN10, HDEN20, SHAPE) %>%
-      gather(variable, value, -PBG00, -STUSPS, -SHAPE) %>%
-      mutate(year = case_when(
-        .$variable == 'HDEN90' ~ 1990,
-        .$variable == 'HDEN00' ~ 2000,
-        .$variable == 'HDEN10' ~ 2010,
-        .$variable == 'HDEN20' ~ 2020
-      )) %>%
-      group_by(PBG00, year) %>%
-      ungroup
-
-    sf::st_write(pop_den, file.path(anthro_proc_dir, "pop_den_long.gpkg"), driver = "GPKG")
+    sf::st_write(pop_den, file.path(anthro_proc_dir, "pop_den.gpkg"), driver = "GPKG")
 
     system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
-  } else {
-      pop_den <- st_read(file.path(anthro_proc_dir, "pop_den_long.gpkg"))
 
-    }
+  } else {
+
+    pop_den <- st_read(file.path(anthro_proc_dir, "pop_den.gpkg"))
+
+  }
+
+  pop_den <- pop_den %>%
+    dplyr::select(PBG00, STUSPS, HDEN90, HDEN00, HDEN10, HDEN20, geom) %>%
+    gather(variable, value, -PBG00, -STUSPS, -geom) %>%
+    mutate(year = case_when(
+      .$variable == 'HDEN90' ~ 1990,
+      .$variable == 'HDEN00' ~ 2000,
+      .$variable == 'HDEN10' ~ 2010,
+      .$variable == 'HDEN20' ~ 2020
+    )) %>%
+    group_by(PBG00, year) %>%
+    ungroup
+
   }
 
 # match each ignition to an census block group
