@@ -46,7 +46,7 @@ climate_prefix <- file.path(prefix, "climate")
 
 # create processed directories
 terrain_dir <- file.path(processed_dir, 'terrain')
-anthro_dir <- file.path(processed_dir, 'anthro')
+anthro_proc_dir <- file.path(processed_dir, 'anthro')
 transportation_dir <- file.path(processed_dir, 'transportation')
 transportation_density_dir <- file.path(transportation_dir, 'density')
 transportation_processed_dir <- file.path(transportation_dir, 'processed')
@@ -56,7 +56,6 @@ summaries_dir <- file.path(summary_dir, "climate_summaries")
 summary_mean <- file.path(summaries_dir, "mean")
 summary_95th <- file.path(summaries_dir, "95th")
 summary_numdays95th <- file.path(summaries_dir, "numdays95th")
-anthro_proc_dir <- file.path(summary_dir, 'anthro')
 
 anthro_dir <- file.path(prefix, "anthro")
 fishnet_path <- file.path(ancillary_dir, "fishnet")

@@ -4,7 +4,7 @@
 # orignially grouped by FPA id but 3k polygons is a lot easier to compute than 1.8M fire points
 
 if (!exists("pop_den")) {
-  if (file.exists(file.path(processed_dir, "pop_den_long.gpkg"))){
+  if (file.exists(file.path(anthro_proc_dir, "pop_den.gpkg"))){
 
     pop_den <- st_read(file.path(pd_prefix, 'us_pbg00_2007.gdb')) %>%
       select(PBG00, HDEN90:HDEN20) %>%
@@ -26,14 +26,29 @@ if (!exists("pop_den")) {
       ungroup
 
     sf::st_write(pop_den,
-                 file.path(processed_dir, "pop_den_long.gpkg"),
+                 file.path(anthro_proc_dir, "pop_den.gpkg"),
                  driver = "GPKG")
 
     system(paste0("aws s3 sync ",
                   processed_dir, " ",
                   s3_proc_prefix))
   }
+} else {
+
+  pop_den <- sf::st_read(file.path(anthro_proc_dir, "pop_den.gpkg"))
 }
+
+# match each ignition to an census block group
+if (!file.exists(file.path(anthro_proc_dir, "fpa_popden_intersect.rds"))) {
+  st_over <- function(x, y) {
+    sapply(st_intersects(x,y), function(z) if (length(z)==0) NA_integer_ else z[1])
+  }
+
+  ov <- st_over(fpa_clean, pop_den)
+  write_rds(ov, file.path(anthro_proc_dir, "fpa_popden_intersect.rds"))
+}
+ov <- read_rds(file.path(anthro_proc_dir, "fpa_popden_intersect.rds"))
+
 
 slim <- pop_den %>%
   filter(STUSPS %in% c("RI"))
@@ -42,16 +57,6 @@ slim$STUSPS <- droplevels(slim$STUSPS)
 fpa_ri <- fpa_clean %>%
   filter(STATE == 'RI')
 fpa_ri$STATE <- droplevels(fpa_ri$STATE)
-
-# match each ignition to an ecoregion
-if (!file.exists(file.path(processed_dir, "fpa_popden_intersect.rds"))) {
-  st_over <- function(x, y) {
-    sapply(st_intersects(x,y), function(z) if (length(z)==0) NA_integer_ else z[1])
-  }
-  ov <- st_over(fpa_ri, slim)
-  write_rds(ov, file.path(processed_dir, "fpa_popden_intersect.rds"))
-}
-ov <- read_rds(file.path(processed_dir, "fpa_popden_intersect.rds"))
 
 fpa_ri <- fpa_ri %>%
   mutate(PBG00 = slim$PBG00[ov],
@@ -115,7 +120,7 @@ impute_in_parallel <- function (unique_groups, pop_tibble, fpa_tibble, sub_group
     unique_popid <- unique(each_pop_id_list$PBG00)
 
     foreach (j = unique_popid) %dopar% {
-    # create a subdataframe based on state subset
+      # create a subdataframe based on state subset
 
       extraction_df <- pop_df %>%
         split(.$PBG00) %>%
