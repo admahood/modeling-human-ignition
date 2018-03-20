@@ -3,13 +3,13 @@ if (!exists("fpa_ll")) {
   if (file.exists(file.path(processed_dir, "fpa_ll.gpkg"))) {
 
     fpa_ll <- st_read(file.path(processed_dir, "fpa_ll.gpkg")) %>%
-      mutate(ymd = floor_date(ymd(DISCOVERY_DATE), "month"))
+      mutate(year_month_day = floor_date(ymd(DISCOVERY_DATE), "month"))
 
   } else if (!file.exists(file.path(processed_dir, "fpa_clean.gpkg"))) {
 
     fpa_ll <- fpa_clean %>%
       st_transform(crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0") %>%
-      mutate(ymd = floor_date(ymd(DISCOVERY_DATE), "month"))
+      mutate(year_month_day = floor_date(ymd(DISCOVERY_DATE), "month"))
 
     st_write(fpa_ll, file.path(processed_dir, "fpa_ll.gpkg"), overwrite = TRUE)
 
@@ -21,7 +21,7 @@ if (!exists("fpa_ll")) {
 
     fpa_ll <- st_read(file.path(processed_dir, "fpa_clean.gpkg")) %>%
       st_transform(crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0") %>%
-      mutate(ymd = floor_date(ymd(DISCOVERY_DATE), "month"))
+      mutate(year_month_day = floor_date(ymd(DISCOVERY_DATE), "month"))
 
     st_write(fpa_ll, file.path(processed_dir, "fpa_ll.gpkg"))
 
@@ -31,100 +31,15 @@ if (!exists("fpa_ll")) {
   }
 }
 
-extract_one <- function(filename, shapefile_extractor) {
-  # function to extract all climate time series based on shapefile input
-  # this results in large list of all months/years within the raster climate data
-  # each list is written out to a csv so this only needs to be run once.
-  # inputs:
-  # filename -> a list of all tif filenames with full path
-  # shapefile_extractor -> the shapefile (point or polygon) to extract climate data
-
-  out_name <- gsub('.tif', '.csv', filename)
-  if (!file.exists(out_name)) {
-    res <- raster::extract(raster::stack(filename), shapefile_extractor,
-                           na.rm = TRUE, fun = 'mean', df = TRUE)
-    write.csv(res, file = out_name)
-  } else {
-    res <- read.csv(out_name)
-  }
-  res
-}
-
-# checks whether the statistic being evaluated has the variable data
-# if not then returns NULL
-check_tifs <- function(j, i, ...) {
-  tif <- tryCatch(list.files(file.path(climate_prefix, j),
-                             pattern = i,
-                             recursive = TRUE,
-                             full.names = TRUE) %>%
-                    Filter(function(x) grepl(".tif", x), .),
-                  error = function(c) {
-                    c$message <- paste0(c$message, " (in the", i, 'variable and ', j, 'statistic)')
-                    warning(c)
-                  }
-  )
-  if (length(tif) > 1) {
-    tif <- list.files(file.path(climate_prefix, j),
-                      pattern = i,
-                      recursive = TRUE,
-                      full.names = TRUE) %>%
-      Filter(function(x) grepl(".tif", x), .)
-  } else {
-    tif <- NULL
-  }
-}
-
-get_climate_lags <- function(fpa_df, climate_df, start_date, time_lag) {
-
-  # capture the variable name and statistic to be incorporated in the output column name
-  variable <- paste0(climate_df$variable[1], '_', climate_df$statistic[1])
-
-  # internal function to create a lagged date
-  lag_date <- function(start_date, time_lag) {
-    require(magrittr)
-    require(tidyverse)
-    require(lubridate)
-
-    # breakup the start date into its components
-    y <- year(start_date)
-    m <- month(start_date)
-    d <- day(start_date)
-
-    # calculate the new lagged year
-    y <- y + (m + time_lag - 1) %/% 12
-
-    # calculate the new lagged month
-    m <- ifelse(((m + time_lag) %% 12) == 0,12, (m + time_lag) %% 12)
-
-    # stitch the new lagged date together
-    as.Date(paste0(y, "-", m, "-", d))
-  }
-
-  fpa_df <- fpa_df %>%
-    as.data.frame() %>%
-    select(-geom)
-
-  climate_df <- climate_df %>%
-    select('FPA_ID', 'ymd', 'value')
-
-  for (j in 0:time_lag) {
-    require(magrittr)
-    require(tidyverse)
-
-    fpa_df <- fpa_df %>%
-      dplyr::mutate(ymd_lagged = lag_date(start_date, -time_lag))
-
-    fpa_df[, paste0(variable, '_lag_', j)] <- left_join(fpa_df, climate_df, by = c('FPA_ID', 'ymd_lagged' = 'ymd')) %>%
-      dplyr::select(value)
-  }
-  return(fpa_df)
-}
-
-stat <- c('mean', 'days-above-95th', '95th-percentile')
+stat <- c('mean', 'numdays95th', '95th')
 vars <- c('aet', 'def', 'ffwi', 'fm100', 'pdsi', 'pr', 'tmmx', 'vpd', 'vs')
+
+unique_states <- unique(fpa_ll$STATE)
 
 for (j in stat){
   for (i in vars) {
+    fpa_summaries <- list()
+    counter <- 1
 
     tifs <- check_tifs(j, i)
 
@@ -132,69 +47,79 @@ for (j in stat){
 
       print(paste0('Skipping ', j, ' ', i))
 
-    } else if (!file.exists(file.path(summaries_dir, paste0('fpa_', j, '_', i, '_summaries.rds')))) {
+    } else if (!file.exists(file.path(summaries_dir, j, paste0('fpa_', i, '_', j, '_summaries.rds')))) {
 
-      sfInit(parallel = TRUE, cpus = parallel::detectCores())
-      sfExport(list = c("fpa_ll"))
+      # subset the fpa-fod data based on state grouping variable
+      # this increases the speed of this function and only needs ~40GB of memory max.
+      for (k in 1:length(unique_states)) {
 
-      extractions <- sfLapply(as.list(tifs),
-                              fun = extract_one,
-                              shapefile_extractor = fpa_ll)
-      sfStop()
+        # create a subdataframe based on state subset
+        sub_df <- subset(fpa_ll, fpa_ll$STATE == unique_states[k])
 
-      # ensure that they all have the same length
-      stopifnot(all(lapply(extractions, nrow) == nrow(fpa_ll)))
+        print(paste0('Working on ', counter, " of ", length(unique_states), " for the ", j, ' ', i))
 
-      # convert to a data frame
-      extraction_df <- extractions %>%
-        bind_cols %>%
-        as_tibble %>%
-        mutate(index = ID) %>%
-        select(-starts_with("ID")) %>%
-        rename(ID = index) %>%
-        mutate(FPA_ID = data.frame(fpa_ll)$FPA_ID) %>%
-        dplyr::select(-starts_with('X')) %>%
-        gather(variable, value, -FPA_ID, -ID) %>%
-        filter(!is.na(value)) %>%
-        mutate(FPA_ID = as.character(FPA_ID),
-               ID = as.character(ID)) %>%
-        # clean the final, long climate data frame with linked fpa ids
-        separate(variable,
-                 into = c("variable", 'year', "statistic", "month"),
-                 sep = "_|\\.") %>%
-        mutate(day = '01',
-               ymd = as.Date(paste(year, month, day, sep='-')))
+        # setup parallel environment
+        cl <- makeCluster(detectCores())
+        registerDoParallel(cl)
 
-      fpa_summaries <- get_climate_lags(fpa_ll, extraction_df, fpa_ll$ymd, time_lag = 24)
+        # extract climate time series data based on point or polygon locations.
+        # this extract is pulling in point data, so fun = mean does not matter
+        extractions <- foreach (i = tifs) %dopar% {
 
-      # save raw monthly extractions
-      extract_name <- file.path(summaries_dir, paste0('fpa_', j, '_', i, '_extractions.rds'))
-      if (!file.exists(extract_name)) {
-        write_rds(extractions, extract_name)
+          res <- raster::extract(raster::stack(i), sub_df,
+                                 na.rm = TRUE, fun = 'mean', df = TRUE)
+        }
+        stopCluster(cl)
+
+        # ensure that they all have the same length
+        stopifnot(all(lapply(extractions, nrow) == nrow(sub_df)))
+
+        # convert to a data frame
+        extraction_df <- extractions %>%
+          bind_cols %>%
+          as_tibble %>%
+          mutate(index = ID) %>%
+          select(-starts_with("ID")) %>%
+          rename(ID = index) %>%
+          mutate(FPA_ID = data.frame(sub_df)$FPA_ID) %>%
+          dplyr::select(-starts_with('X')) %>%
+          gather(variable, value, -FPA_ID, -ID) %>%
+          filter(!is.na(value)) %>%
+          mutate(FPA_ID = as.factor(FPA_ID),
+                 ID = as.factor(ID)) %>%
+          # clean the final, long climate data frame with linked fpa ids
+          separate(variable,
+                   into = c("variable", 'year', "statistic", "month"),
+                   sep = "_|\\.") %>%
+          mutate(day = '01',
+                 year_month_day = as.Date(paste(year, month, day, sep='-')))
+
+        # reduce the size of the dataframe to be joined during the get_climate_lags
+        sub_df <- sub_df %>%
+          dplyr::select(FPA_ID, year_month_day)
+
+        # run get_climate_lags for the prior 24 months given a fpa-fod fire event
+        # this will iteratively populate a list given each state grouping variable
+        fpa_summaries[[k]] <- get_climate_lags(sub_df, extraction_df, sub_df$year_month_day, time_lag = 24) %>%
+          dplyr::select(-year_month_day)
+
+        counter <- counter + 1
       }
 
-      # save processed/cleaned monthly extractions
-      # this data frame is in wide format
-      extract_df_name <- file.path(summaries_dir, paste0('fpa_', j, '_', i, '_extractions_df.rds'))
-      if (!file.exists(extract_df_name)) {
-        write_rds(extraction_df, extract_df_name)
+      if (length(fpa_summaries) > 0) {
+        # rbinds the iteratively populated list and creates a cohesive dataframe
+        fpa_summaries <- do.call(rbind, fpa_summaries) # Convert to data frame format
+
+        # save the final cleaned climate extractions joined with the fpa-fod database
+        summary_name <- file.path(summaries_dir, j, paste0('fpa_', i, '_', j, '_summaries.rds'))
+        write_rds(fpa_summaries, summary_name)
+
+        # push to S3
+        system('aws s3 sync data/summary s3://earthlab-modeling-human-ignitions/summary')
       }
-
-      # save the final cleaned climate extractions
-      # this dataframe is in long format to be used as a lookup table
-      summary_name <- file.path(summaries_dir, paste0('fpa_', j, '_', i, '_summaries.rds'))
-      write_rds(fpa_summaries, summary_name)
-
-      # push to S3
-      system(paste0('aws s3 cp data/summary s3://earthlab-modeling-human-ignitions/summary --recursive'))
-
-      # to conserve space delete the large files
-      unlink(extract_name)
-      unlink(summary_name)
-      unlink(extract_df_name)
-
-      # creating the final dataframe takes about 150 GB of RAM, this clears the cache so it can be run again
-      gc()
     }
+
+    # creating the final dataframe takes about 150 GB of RAM, this clears the cache so it can be run again
+    gc()
   }
 }

@@ -61,36 +61,6 @@ netcdf_import <- function(file, masks){
                 format = "GTiff")
       }
     }
-
-  # Monthly mean 90th percentile
-  mean_90thpct <- stack()
-  for(i in 1979:2016) {
-    if(!file.exists(file.path(dir_90th, paste0(var, "_", i, "_90th",".tif")) )){
-      r_sub <- subset(monthly_mean,  grep(i, names(rasters))) # subset based on year
-
-        for (j in 1:nlayers(r_sub)){
-        pctile <- calc(r_sub[[j]],
-                         fun = function(x) raster::quantile(x, probs = 0.90, na.rm = T))
-        mean_90thpct <- stack(mean_90thpct, pctile) }
-      writeRaster(pctile, filename = file.path(dir_90th, paste0(var, "_", i, "_90th",".tif")),
-                  format = "GTiff")
-      }
-    }
-
-  # Monthly mean 95th percentile
-  mean_95thpct <- stack()
-  for(i in 1979:2016) {
-    if(!file.exists(file.path(dir_95th, paste0(var, "_", i, "_95th",".tif")) )){
-      r_sub <- subset(monthly_mean,  grep(i, names(rasters))) # subset based on year
-
-        for (j in 1:nlayers(r_sub)){
-        pctile <- calc(r_sub[[j]],
-                       fun = function(x) raster::quantile(x, probs = 0.95, na.rm = T))
-        mean_95thpct <- stack(mean_95thpct, pctile) }
-        writeRaster(pctile, filename = file.path(dir_95th, paste0(var, "_", i, "_95th",".tif")),
-                    format = "GTiff")
-      }
-    }
 }
 
 monthly_files <- list.files(climate_prefix, pattern = "nc",
