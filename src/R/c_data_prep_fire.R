@@ -1,8 +1,8 @@
 # Load and process FPA-FOD wildfire iginition data
 if (!exists("fpa_clean")) {
   if (file.exists(file.path(processed_dir, "fpa_clean.gpkg"))){
-    fpa_clean <- st_read(file.path(processed_dir, "fpa_clean.gpkg")) %>%
-      mutate(year_month_day = floor_date(ymd(DISCOVERY_DATE), "month"))
+    
+    fpa_clean <- st_read(file.path(processed_dir, "fpa_clean.gpkg"))
 
     } else {
       if (!exists("fpa")) {
