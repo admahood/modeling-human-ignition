@@ -6,26 +6,26 @@
 if (!exists("pop_den")) {
   if (!file.exists(file.path(anthro_proc_dir, "pop_den.gpkg"))){
 
-    pop_den <- st_read(file.path(pd_prefix, 'us_pbg00_2007.gdb')) %>%
+    pop_den_cleaned <- st_read(file.path(pd_prefix, 'us_pbg00_2007.gdb')) %>%
       select(PBG00, HDEN90:HDEN20) %>%
       st_transform(st_crs(usa_shp)) %>%
       st_join(., usa_shp, join = st_intersects)
 
-    fpa_overlay <- st_intersects(fpa_clean, pop_den)
+    fpa_overlay <- st_intersects(fpa_clean, pop_den_cleaned)
 
-    pop_den <- pop_den[unlist(fpa_overlay), ]
+    pop_den_cleaned <- pop_den_cleaned[unlist(fpa_overlay), ]
 
-    sf::st_write(pop_den, file.path(anthro_proc_dir, "pop_den.gpkg"), driver = "GPKG")
+    sf::st_write(pop_den_cleaned, file.path(anthro_proc_dir, "pop_den.gpkg"), driver = "GPKG")
 
     system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
 
   } else {
 
-    pop_den <- st_read(file.path(anthro_proc_dir, "pop_den.gpkg"))
+    pop_den_cleaned <- st_read(file.path(anthro_proc_dir, "pop_den.gpkg"))
 
   }
 
-  pop_den <- pop_den %>%
+  pop_den <- pop_den_cleaned %>%
     dplyr::select(PBG00, STUSPS, HDEN90, HDEN00, HDEN10, HDEN20, geom) %>%
     gather(variable, value, -PBG00, -STUSPS, -geom) %>%
     mutate(year = case_when(
@@ -37,30 +37,30 @@ if (!exists("pop_den")) {
     group_by(PBG00, year) %>%
     ungroup
 
-  }
-
-# match each ignition to an census block group
-if (!file.exists(file.path(anthro_proc_dir, "fpa_popden_intersect.rds"))) {
-  st_over <- function(x, y) {
-    sapply(st_intersects(x,y), function(z) if (length(z)==0) NA_integer_ else z[1])
-  }
-
-  ov <- st_over(fpa_clean, pop_den)
-  write_rds(ov, file.path(anthro_proc_dir, "fpa_popden_intersect.rds"))
 }
-ov <- read_rds(file.path(anthro_proc_dir, "fpa_popden_intersect.rds"))
 
+if (!exists("fpa_overlay")) {
+  fpa_overlay <- st_intersection(fpa_clean, pop_den_cleaned)
 
-slim <- pop_den %>%
-  filter(STUSPS %in% c("RI"))
-slim$STUSPS <- droplevels(slim$STUSPS)
+  sf::st_write(fpa_overlay, file.path(anthro_proc_dir, "fpa_overlay_pop.gpkg"), driver = "GPKG")
 
-fpa_ri <- fpa_clean %>%
-  filter(STATE == 'RI')
-fpa_ri$STATE <- droplevels(fpa_ri$STATE)
+  system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
+}
 
-fpa_ri <- fpa_ri %>%
-  mutate(PBG00 = slim$PBG00[ov],
+pop_den_slim <- pop_den %>%
+  filter(STUSPS %in% c("RI", 'CT', 'MA', 'NH', 'VT', 'ME'))
+pop_den_slim$STUSPS <- droplevels(pop_den_slim$STUSPS)
+sf::st_write(pop_den_slim, file.path(anthro_proc_dir, "pop_den_slim.gpkg"), driver = "GPKG")
+
+fpa_slim <- fpa_clean %>%
+  filter(STUSPS %in% c("RI", 'CT', 'MA', 'NH', 'VT', 'ME'))
+fpa_slim$STATE <- droplevels(fpa_slim$STATE)
+sf::st_write(fpa_slim, file.path(anthro_proc_dir, "fpa_slim.gpkg"), driver = "GPKG")
+
+system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
+
+fpa_slim <- fpa_slim %>%
+  mutate(PBG00 = fpa_slim$PBG00[fpa_overlay],
          STUSPS = STATE) %>%
   filter(!is.na(PBG00)) %>%
   dplyr::select(FPA_ID, PBG00, STUSPS, year_month_day)
