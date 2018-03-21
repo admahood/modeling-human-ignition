@@ -158,9 +158,9 @@ mosaic_rasters <- function(files){
   return(mos)
 }
 
-get_density <- function(unique_groups, list_of_grids, list_of_lines) {
+get_density <- function(unique_groups, list_of_grids, list_of_lines, ncores) {
 
-  cl <- makeCluster(detectCores())
+  cl <- makeCluster(ncores)
   registerDoParallel(cl)
 
   sub_grid <- foreach (k = unique_groups, .combine = rbind) %dopar% {
