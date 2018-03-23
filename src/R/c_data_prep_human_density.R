@@ -3,164 +3,180 @@
 # clean, rename, and group the housing denisty data
 # orignially grouped by FPA id but 3k polygons is a lot easier to compute than 1.8M fire points
 
-if (!exists("pop_den")) {
-  if (!file.exists(file.path(anthro_proc_dir, "pop_den.gpkg"))){
+if (!exists("pop_den_cleaned")) {
+  if (!file.exists(file.path(anthro_proc_dir, "fpa_overlay_pop_den.gpkg"))){
 
     pop_den_cleaned <- st_read(file.path(pd_prefix, 'us_pbg00_2007.gdb')) %>%
-      select(PBG00, HDEN90:HDEN20) %>%
+      select(PBG00, HDEN90:HDEN30) %>%
       st_transform(st_crs(usa_shp)) %>%
-      st_join(., usa_shp, join = st_intersects)
+      st_intersection(fpa_clean, .)
 
-    fpa_overlay <- st_intersects(fpa_clean, pop_den_cleaned)
-
-    pop_den_cleaned <- pop_den_cleaned[unlist(fpa_overlay), ]
-
-    sf::st_write(pop_den_cleaned, file.path(anthro_proc_dir, "pop_den.gpkg"), driver = "GPKG")
+    sf::st_write(pop_den_cleaned, file.path(anthro_proc_dir, "fpa_overlay_pop_den.gpkg"), driver = "GPKG")
 
     system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
 
   } else {
 
-    pop_den_cleaned <- st_read(file.path(anthro_proc_dir, "pop_den.gpkg"))
+    pop_den_cleaned <- st_read(file.path(anthro_proc_dir, "fpa_overlay_pop_den.gpkg"))
 
   }
-
-  pop_den <- pop_den_cleaned %>%
-    dplyr::select(PBG00, STUSPS, HDEN90, HDEN00, HDEN10, HDEN20, geom) %>%
-    gather(variable, value, -PBG00, -STUSPS, -geom) %>%
-    mutate(year = case_when(
-      .$variable == 'HDEN90' ~ 1990,
-      .$variable == 'HDEN00' ~ 2000,
-      .$variable == 'HDEN10' ~ 2010,
-      .$variable == 'HDEN20' ~ 2020
-    )) %>%
-    group_by(PBG00, year) %>%
-    ungroup
-
 }
 
-if (!exists("fpa_overlay")) {
-  fpa_overlay <- st_intersection(fpa_clean, pop_den_cleaned)
+# pop_den_cleaned_slim <- pop_den_cleaned %>%
+#   filter(STATE %in% c("RI", 'CT', 'MA', 'NH', 'VT', 'ME'))
+# pop_den_cleaned_slim$STATE <- droplevels(pop_den_cleaned_slim$STATE)
+# sf::st_write(pop_den_cleaned_slim, file.path(anthro_proc_dir, "pop_den_cleaned_slim.gpkg"), driver = "GPKG")
 
-  sf::st_write(fpa_overlay, file.path(anthro_proc_dir, "fpa_overlay_pop.gpkg"), driver = "GPKG")
+# system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
+# pop_den_cleaned_slim_list <- split_fast_tibble(pop_den_cleaned_slim, pop_den_cleaned_slim$STATE)
 
-  system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
-}
-
-pop_den_slim <- pop_den %>%
-  filter(STUSPS %in% c("RI", 'CT', 'MA', 'NH', 'VT', 'ME'))
-pop_den_slim$STUSPS <- droplevels(pop_den_slim$STUSPS)
-sf::st_write(pop_den_slim, file.path(anthro_proc_dir, "pop_den_slim.gpkg"), driver = "GPKG")
-
-fpa_slim <- fpa_clean %>%
-  filter(STUSPS %in% c("RI", 'CT', 'MA', 'NH', 'VT', 'ME'))
-fpa_slim$STATE <- droplevels(fpa_slim$STATE)
-sf::st_write(fpa_slim, file.path(anthro_proc_dir, "fpa_slim.gpkg"), driver = "GPKG")
-
-system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
-
-fpa_slim <- fpa_slim %>%
-  mutate(PBG00 = fpa_slim$PBG00[fpa_overlay],
-         STUSPS = STATE) %>%
-  filter(!is.na(PBG00)) %>%
-  dplyr::select(FPA_ID, PBG00, STUSPS, year_month_day)
-
-
-
-unique_states <- unique(slim$STUSPS)
-
-pop_list <- split_fast_tibble(slim, slim$STUSPS)
-fpa_list <- split_fast_tibble(fpa_ri, fpa_ri$STUSPS)
-
-# Then interpolate for each month and year from 1984 - 2015
-# using a simple linear sequence
-impute_density <- function(df) {
-  year_seq <- min(df$year):max(df$year)
-  predict_seq <- seq(min(df$year),
-                     max(df$year),
-                     length.out = (length(year_seq) - 1) * 12)
-  preds <- approx(x = df$year,
-                  y = df$value,
-                  xout = predict_seq)
-  res <- as_tibble(preds) %>%
-    rename(t = x, value = y) %>%
-    mutate(year = floor(t),
-           month = rep(1:12, times = length(year_seq) - 1),
-           day = '01',
-           year_month_day = as.Date(paste(year, month, day, sep='-'))) %>%
-    filter(year < 2016)
-  res$PBG00 <- unique(df$PBG00)
-  res
-}
-
-impute_in_parallel <- function (unique_groups, pop_tibble, fpa_tibble, sub_groups) {
-
-  # subset the fpa-fod data based on state grouping variable
-  # this increases the speed of this function and only needs ~40GB of memory max.
-  #cl <- makeCluster(detectCores())
-  #registerDoParallel(cl)
-
-  k <- 'RI'
-  sub_groups <- 'STUSPS'
-  pop_tibble <- pop_list
-  fpa_tibble <- fpa_list
+impute_in_parallel <- function (unique_groups, input_tibble) {
 
   fp_pop_den_summaries <- for (k in unique_groups) {
-    require(tidyverse)
-    require(lubridate)
 
-    pop_df <- pop_tibble[k] %>%
-      do.call(rbind, .)
+    # create a subdataframe based on state subset
+    fpa_df <- subset(input_tibble, input_tibble$STATE == k)
 
-    fpa_df <- fpa_tibble[k] %>%
-      do.call(rbind, .)
+    # fpa_df <- input_tibble[k] %>%
+    #   do.call(rbind, .)
 
-    each_id_in_pop_list <- split_fast_tibble(pop_df, pop_df$PBG00)
-    each_id_in_fpa_list <- split_fast_tibble(fpa_df, fpa_df$PBG00)
+    print(paste0('Working on ', k))
 
-    unique_popid <- unique(each_pop_id_list$PBG00)
+    if (file.exists(file.path(per_state, paste0('pop_den_extractions_', k, '.rds')))) {
 
-    foreach (j = unique_popid) %dopar% {
-      # create a subdataframe based on state subset
+      next
 
-      extraction_df <- pop_df %>%
-        split(.$PBG00) %>%
-        map(~impute_density(.)) %>%
-        bind_rows %>%
-        dplyr::select(-t) %>%
-        mutate(day = '01',
-               year_month_day = as.Date(paste(year, month, day, sep='-')))
+       } else {
 
-      # reduce the size of the dataframe to be joined during the get_climate_lags
-      fpa_df <- fpa_df %>%
-        dplyr::select(PBG00, year_month_day) %>%
-        distinct()
+        cl <- makeCluster(detectCores())
+        registerDoParallel(cl)
 
-      # run get_climate_lags for the prior 24 months given a fpa-fod fire event
-      # this will iteratively populate a list given each state grouping variable
-      fp_pop_den_summaries <- get_lags(sub_df, extraction_df, sub_df$year_month_day, time_lag = 0) %>%
-        dplyr::select(-year_month_day)
+        fpa_out <- foreach (j = 1:nrow(fpa_df), .combine = rbind) %dopar% {
+          require(tidyverse)
+          require(magrittr)
 
-      write_rds(fp_pop_den_summaries, file.path(per_state, paste0('pop_den_summary_', k, '.rds')))
+          # Two internal functions
+          # Interpolate for each month and year from 1992 - 2015
+          # using a simple linear sequence
+          impute_density <- function(df) {
+            year_seq <- min(df$year):max(df$year)
+            predict_seq <- seq(min(df$year),
+                                max(df$year),
+                                length.out = (length(year_seq) - 1) * 12)
+             preds <- approx(x = df$year,
+                             y = df$value,
+                             xout = predict_seq)
+             res <- as_tibble(preds) %>%
+               rename(t = x, value = y) %>%
+               mutate(year = floor(t),
+                      month = rep(1:12, times = length(year_seq) - 1),
+                      day = '01',
+                      year_month_day = as.Date(paste(year, month, day, sep='-'))) %>%
+               filter(year < 2016)
+             res$PBG00 <- unique(df$PBG00)
+             res$FPA_ID<- unique(df$FPA_ID)
+             res
+          }
 
-      system(paste0("aws s3 sync ",
-                    summary_dir, " ",
-                    s3_proc_extractions))
+          get_lags <- function(extract_to, extract_from, start_date, time_lag) {
+
+            # capture the variable name and statistic to be incorporated in the output column name
+            if (exists('extract_from$statistic')) {
+              variable <- paste0(extract_from$variable[1], '_', extract_from$statistic[1])
+            } else {
+              variable <- 'housing_density'
+            }
+
+            # internal function to create a lagged date
+            lag_date <- function(start_date, time_lag) {
+              require(magrittr)
+              require(tidyverse)
+              require(lubridate)
+
+              # breakup the start date into its components
+              y <- year(start_date)
+              m <- month(start_date)
+              d <- day(start_date)
+
+              # calculate the new lagged year
+              y <- y + (m - time_lag - 1) %/% 12
+
+              # calculate the new lagged month
+              m <- ifelse(((m - time_lag) %% 12) == 0, 12, (m - time_lag) %% 12)
+
+              # stitch the new lagged date together
+              as.Date(paste0(y, "-", m, "-", d))
+            }
+
+            # remove the sf data - increases efficiency
+            if (exists('extract_to$geom')) {
+              extract_to <- extract_to %>%
+                as.data.frame() %>%
+                dplyr::select(-geom)
+            }
+
+            # pair down to the extract_from to allow for easier left_join
+            extract_from <- extract_from %>%
+              dplyr::select('FPA_ID', 'year_month_day', 'value')
+
+            for (j in 0:time_lag) {
+              require(magrittr)
+              require(tidyverse)
+
+              # create a lagged data year column that can be joined and extracted upon
+              extract_to[, paste0(variable, '_lag_', j)]  <- extract_to %>%
+                dplyr::mutate(ymd_lagged = lag_date(start_date = start_date, time_lag = j)) %>%
+                left_join(., extract_from, by = c('FPA_ID', 'ymd_lagged' = 'year_month_day')) %>%
+                dplyr::select(value)
+            }
+            return(extract_to)
+          }
+
+          extraction_df <- fpa_df[j,] %>%
+            dplyr::select(PBG00, FPA_ID, STATE, HDEN90, HDEN00, HDEN10, HDEN20, geom) %>%
+            gather(variable, value, -FPA_ID, -PBG00, -STATE, -geom) %>%
+            mutate(value = ifelse(value == -999, is.na(value), value)) %>%
+            filter(!is.na(value)) %>%
+            mutate(year = case_when(
+              .$variable == 'HDEN90' ~ 1990,
+              .$variable == 'HDEN00' ~ 2000,
+              .$variable == 'HDEN10' ~ 2010,
+              .$variable == 'HDEN20' ~ 2020
+            )) %>%
+            do(impute_density(.)) %>%
+            dplyr::select(-t)
+
+          # reduce the size of the dataframe to be joined during the get_climate_lags
+          sub_df <- fpa_df[j,] %>%
+            dplyr::select(FPA_ID, PBG00, year_month_day)
+
+          fpa_out <- get_lags(extract_to = sub_df, extract_from = extraction_df, start_date = sub_df$year_month_day, time_lag = 0) %>%
+            dplyr::select(-year_month_day)
+        }
+
+      stopCluster(cl)
+
+      print(paste0('Writing out ', k))
+
+      write_rds(fpa_out, file.path(per_state, paste0('pop_den_extractions_', k, '.rds')))
+      system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
+
+       }
     }
-    stopCluster(cl)
-    return(fp_pop_den_summaries)
-  }
-  return(fp_pop_den_summaries)
 }
 
+pop_den_tibble <- as_tibble(pop_den_cleaned)
+unique_states <- unique(pop_den_tibble$STATE)
 
-fp_pop_den_summaries <- impute_in_parallel(unique_groups= unique_states,
-                                           input_tibble = slim,
-                                           sub_groups = "STATE")
+fp_pop_den_summaries <- impute_in_parallel(unique_groups = unique_states ,
+                                           input_tibble = pop_den_tibble)
 
-fp_pop_den_summaries %>%
-  write_rds(file.path(anthro_proc_dir, 'housing_density.rds'))
+rds <- list.files(per_state,
+                  pattern = '.rds',
+                  recursive = TRUE,
+                  full.names = TRUE)
 
-system(paste0("aws s3 sync ",
-              summary_dir, " ",
-              s3_proc_extractions))
+pop_den_all <- lapply(as.list(rds), readr::read_rds) %>%
+  bind_rows()
+
+su <- read_rds(file.path(popden_extract, paste0('pop_den_extractions.rds')))
