@@ -31,7 +31,7 @@ pop_den_tibble <- as.data.frame(pop_den_cleaned) %>%
 
 sfInit(parallel = TRUE, cpus = parallel::detectCores())
 sfExport('pop_den_tibble')
-sfSource('src/functions/housing_density_helper_functions.r')
+sfSource('src/functions/helper_functions.R')
 
 fp_pop_den_summaries <- sfLapply(seq_along(1:nrow(pop_den_tibble)),
                               fun = impute_in_parallel,
