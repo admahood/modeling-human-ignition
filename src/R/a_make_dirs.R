@@ -6,9 +6,6 @@ lapply(x, library, character.only = TRUE, verbose = FALSE)
 
 # load all functions
 source('src/functions/helper_functions.R')
-source("src/functions/download-data.R")
-source('src/functions/st_par.R')
-source("src/functions/decompress_function.R")
 
 # key rojections
 p4string_ed <- "+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"   #http://spatialreference.org/ref/esri/102005/
