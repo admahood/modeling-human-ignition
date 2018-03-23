@@ -58,8 +58,6 @@ summary_95th <- file.path(summaries_dir, "95th")
 summary_numdays95th <- file.path(summaries_dir, "numdays95th")
 terrain_extract <- file.path(summary_dir, "terrain_extractions")
 popden_extract <- file.path(summary_dir, "pop_den_extractions")
-per_state <- file.path(popden_extract, 'per_state_rds')
-
 
 anthro_dir <- file.path(prefix, "anthro")
 fishnet_path <- file.path(ancillary_dir, "fishnet")
@@ -78,10 +76,7 @@ var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix, s
                 tl_prefix, ancillary_dir, anthro_dir, fishnet_path, processed_dir, summaries_dir,
                 nlcd_pdi_01_prefix, nlcd_pdi_06_prefix, nlcd_pdi_11_prefix, summary_mean,
                 summary_95th, summary_numdays95th, terrain_dir, transportation_dir, anthro_proc_dir,
-<<<<<<< HEAD
                 transportation_density_dir, transportation_processed_dir, anthro_dir,
-=======
-                transportation_density_dir, transportation_processed_dir, anthro_dir, 
->>>>>>> 1e2c27d47afe960467c2ec2046dc63b633ba13df
-                terrain_extract, popden_extract, per_state)
+                terrain_extract, popden_extract)
+
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
