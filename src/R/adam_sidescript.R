@@ -92,7 +92,7 @@ test = density(layer=layer,rast=rast)
 
 plot(rLength); plot(sl, add=T)
 
-# delete
+# 
 # # road density script from last year
 # listofshps=Sys.glob("*.shp")
 # listofshps=substr(x=listofshps, start=1, stop=19)
@@ -109,18 +109,63 @@ plot(rLength); plot(sl, add=T)
 # 
 # listoftifs=Sys.glob("*.tif")
 
-registerDoParallel(detectCores())
-f$length <- 0
-f$length <- length_in_poly(sl,f)
-  
+# start here ------------------------------------------------------------------------------
+
+library(sf)
+library(foreach)
+
+# function --------------------------------------------------------------------------------
+
 length_in_poly <- function(sl,f){
   return(foreach(i = 1:nrow(f), .combine = rbind) %dopar% {
-  x <- st_intersection(sl, f[i,])
-  if(nrow(x) > 0){
-    f$length[i] <-  sum(st_length(x))/st_area(f[i,])
-  } else{
-    f$length[i] <-0
+    x <- st_intersection(sl, f[i,])
+    if(nrow(x) > 0){
+      f$length[i] <-  sum(st_length(x))/st_area(f[i,])
+    } else{
+      f$length[i] <-0
     }
-  
-})}
-stopCluster()
+    gc()
+  })}
+
+# execution -------------------------------------------------------------------------------
+
+f <- st_read("data/ancillary/fishnet/fishnet_4k.gpkg")
+
+layers <- c("data/processed/primary_rds.gpkg",
+           "data/processed/secondary_rds.gpkg",
+           "data/processed/rail_rds.gpkg",
+           "data/processed/power_lines.gpkg")
+
+sl <- st_read(layers[1]) %>%
+  st_transform(crs = st_crs(f))
+
+t0 <- Sys.time()
+registerDoParallel(detectCores())
+f$den_primary_rds <- 0
+f$den_primary_rds <- length_in_poly(sl,f)
+print(Sys.time() - t0)
+
+
+sl <- st_read(layers[2]) %>%
+  st_transform(crs = st_crs(f))
+t0 <- Sys.time()
+registerDoParallel(detectCores())
+f$den_secondary_rds <- 0
+f$den_secondary_rds <- length_in_poly(sl,f)
+print(Sys.time() - t0)
+
+sl <- st_read(layers[3]) %>%
+  st_transform(crs = st_crs(f))
+t0 <- Sys.time()
+registerDoParallel(detectCores())
+f$den_rail_rds <- 0
+f$den_rail_rds <- length_in_poly(sl,f)
+print(Sys.time() - t0)
+
+sl <- st_read(layers[3]) %>%
+  st_transform(crs = st_crs(f))
+t0 <- Sys.time()
+registerDoParallel(detectCores())
+f$den_power_lines <- 0
+f$den_power_lines <- length_in_poly(sl,f)
+print(Sys.time() - t0)
