@@ -1,7 +1,4 @@
 
-unique_states <- unique(hexnet_4k$STUSPS)
-
-hex_list <- split_fast_tibble(hexnet_4k, hexnet_4k$STUSPS)
 
 if (!file.exists(file.path(transportation_density_dir, "railroad_density.gpkg"))) {
 
@@ -53,10 +50,8 @@ if (!file.exists(file.path(transportation_density_dir, "secondary_rds_density.gp
 
 if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpkg"))) {
 
-  tertiary_rds_list <- split_fast_tibble(tertiary_rds, tertiary_rds$STUSPS)
-
-  sfInit(parallel = TRUE, cpus = parallel::detectCores()/2)
-  sfExport('pop_den_tibble')
+  sfInit(parallel = TRUE, cpus = parallel::detectCores())
+  sfExport('tertiary_rds')
 
   fp_pop_den_summaries <- sfLapply(seq_along(1:nrow(tertiary_rds)),
                                    fun = get_density,
