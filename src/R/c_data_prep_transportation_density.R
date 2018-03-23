@@ -55,6 +55,16 @@ if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpk
 
   tertiary_rds_list <- split_fast_tibble(tertiary_rds, tertiary_rds$STUSPS)
 
+  sfInit(parallel = TRUE, cpus = parallel::detectCores()/2)
+  sfExport('pop_den_tibble')
+
+  fp_pop_den_summaries <- sfLapply(seq_along(1:nrow(tertiary_rds)),
+                                   fun = get_density,
+                                   lines = tertiary_rds,
+                                   grids = hexnet_4k)
+
+  sfStop()
+
   tertiary_rds_density <- get_density(unique_states, hex_list, tertiary_rds_list, ncores = 16)
 
   st_write(tertiary_rds_density, file.path(transportation_density_dir, "tertiary_rds_density.gpkg"))
