@@ -1,6 +1,3 @@
-
-
-
 # import and transform the SILVIS lab partial census block housing density data
 # clean, rename, and group the housing denisty data
 # orignially grouped by FPA id but 3k polygons is a lot easier to compute than 1.8M fire points
@@ -150,16 +147,15 @@ impute_in_parallel <-
   }
 
 pop_den_tibble <- as.data.frame(pop_den_cleaned) %>%
-  dplyr::select(PBG00, FPA_ID, STATE, HDEN90, HDEN00, HDEN10, HDEN20, year_month_day) %>%
+  dplyr::select(PBG00, FPA_ID, STATE, year_month_day, HDEN90, HDEN00, HDEN10, HDEN20) %>%
   as_tibble()
 
-sfInit(parallel = TRUE, cpus = parallel::detectCores()/2)
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
 sfExport('pop_den_tibble')
 
 fp_pop_den_summaries <- sfLapply(seq_along(1:nrow(pop_den_tibble)),
                               fun = impute_in_parallel,
                               input_tibble = pop_den_tibble)
-
 sfStop()
 
 # convert to a data frame
