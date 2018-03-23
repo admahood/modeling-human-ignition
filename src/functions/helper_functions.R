@@ -158,67 +158,27 @@ mosaic_rasters <- function(files){
   return(mos)
 }
 
-get_density <- function(unique_groups, list_of_grids, list_of_lines, ncores) {
+get_density <- function(x, grids, lines) {
 
-  cl <- makeCluster(ncores)
-  registerDoParallel(cl)
+  require(tidyverse)
+  require(lubridate)
+  require(sf)
 
-  sub_grid <- foreach (k = unique_groups, .combine = rbind) %dopar% {
+  single_lines_hexid <- lines[x,] %>%
+    sf::st_cast(., "MULTILINESTRING", group_or_split = FALSE) %>%
+    sf::st_intersection(., sub_grid) %>%
+    dplyr::select(hexid4k, STUSPS, geometry) %>%
+    dplyr::mutate(length_line = st_length(.))
 
-    require(tidyverse)
-    require(lubridate)
-    require(sf)
-
-    # create a subdataframe based on state subset
-    sub_grid <- list_of_grids[k] %>%
-      do.call(rbind, .) %>%
-      sf::st_as_sf(.)
-
-    sub_line <- list_of_lines[k] %>%
-      do.call(rbind, .) %>%
-      sf::st_as_sf(.)
-
-    single_lines <- sub_line %>%
-      dplyr::group_by(STUSPS) %>%
-      dplyr::summarise()
-
-    single_lines_hexid <- single_lines %>%
-      sf::st_cast(., "MULTILINESTRING", group_or_split = FALSE) %>%
-      sf::st_intersection(., sub_grid) %>%
-      dplyr::select(hexid4k, STUSPS, geometry) %>%
-      dplyr::mutate(length_line = st_length(.))
-
-    sub_grid <- sub_grid %>%
-      sf::st_join(., single_lines_hexid, join = st_intersects) %>%
-      dplyr::mutate(hexid4k = hexid4k.x,
-             length_line = ifelse(is.na(length_line), 0, length_line),
-             pixel_area = as.numeric(st_area(geom)),
-             density = length_line/pixel_area,
-             STUSPS = STUSPS.x) %>%
-      dplyr::select(hexid4k, STUSPS, length_line, pixel_area, density)
-    return(sub_grid)
-  }
-  stopCluster(cl)
+  sub_grid <- grid[x,] %>%
+    sf::st_join(., single_lines_hexid, join = st_intersects) %>%
+    dplyr::mutate(hexid4k = hexid4k.x,
+           length_line = ifelse(is.na(length_line), 0, length_line),
+           pixel_area = as.numeric(st_area(geom)),
+           density = length_line/pixel_area,
+           STUSPS = STUSPS.x) %>%
+    dplyr::select(hexid4k, STUSPS, length_line, pixel_area, density)
   return(sub_grid)
-}
-
-# Then interpolate for each month and year from 1984 - 2015
-# using a simple linear sequence
-impute_density <- function(df) {
-  year_seq <- min(df$year):max(df$year)
-  predict_seq <- seq(min(df$year),
-                     max(df$year),
-                     length.out = (length(year_seq) - 1) * 12)
-  preds <- approx(x = df$year,
-                  y = df$value,
-                  xout = predict_seq)
-  res <- as_tibble(preds) %>%
-    rename(t = x, value = y) %>%
-    mutate(year = floor(t),
-           month = rep(1:12, times = length(year_seq) - 1)) %>%
-    filter(year < 2016)
-  res$FPA_ID <- unique(df$FPA_ID)
-  res
 }
 
 # Functions for `d_rasterize_anthro.R` ------------------------------------
