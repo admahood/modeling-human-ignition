@@ -13,11 +13,11 @@ st_par <- function(sf_df, sf_func, n_cores, ...){
   # Paralise any simple features analysis.
   # Create a vector to split the data set up by.
   split_vector <- rep(1:n_cores, each = nrow(sf_df) / n_cores, length.out = nrow(sf_df))
-  
+
   # Perform GIS analysis
   split_results <- split(sf_df, split_vector) %>%
     mclapply(function(x) sf_func(x, ...), mc.cores = n_cores)
-  
+
   # Combine results back together. Method of combining depends on the output from the function.
   if (class(split_results[[1]]) == 'list' ){
     result <- do.call(c, split_results)
@@ -25,7 +25,7 @@ st_par <- function(sf_df, sf_func, n_cores, ...){
   } else {
     result <- do.call(rbind, split_results)
   }
-  
+
   # Return result
   return(result)
 }
@@ -34,7 +34,7 @@ st_par <- function(sf_df, sf_func, n_cores, ...){
 
 load_data <- function(url, dir, layer, outname) {
   file <- paste0(dir, "/", layer, ".shp")
-  
+
   if (!file.exists(file)) {
     download.file(url, destfile = paste0(dir, ".zip"))
     unzip(paste0(dir, ".zip"),
@@ -42,20 +42,20 @@ load_data <- function(url, dir, layer, outname) {
   }
   name <- paste0(outname, "_shp")
   name <- sf::st_read(dsn = dir, layer = layer)
-  
+
   name
 }
 
 download_data <-  function(url, dir, layer, fld_name) {
   dest <- paste0(raw_prefix, ".zip")
-  
+
   if (!file.exists(layer)) {
     download.file(url, dest)
     unzip(dest,
           exdir = raw_prefix)
     unlink(dest)
     assert_that(file.exists(layer))
-    
+
     system(paste0('aws s3 sync ',
                   dir, " ",
                   s3_raw_prefix, fld_name))
@@ -63,11 +63,11 @@ download_data <-  function(url, dir, layer, fld_name) {
 }
 
 decompress_file <- function(file, exdir, .file_cache = FALSE) {
-  
+
   if (.file_cache == TRUE) {
     print("decompression skipped")
   } else {
-    
+
     # Run decompression
     decompression <-
       system2("unzip",
@@ -76,7 +76,7 @@ decompress_file <- function(file, exdir, .file_cache = FALSE) {
                        "-d",
                        exdir),
               stdout = TRUE)
-    
+
     # Test for success criteria
     # change the search depending on
     # your implementation
@@ -194,64 +194,64 @@ get_density <- function(x, grids, lines) {
     dplyr::select(hexid4k, STUSPS, geometry) %>%
     dplyr::mutate(length_line = st_length(.))
 
-  sub_grid <- grid[x,] %>%
-    sf::st_join(., single_lines_hexid, join = st_intersects) %>%
-    dplyr::mutate(hexid4k = hexid4k.x,
-           length_line = ifelse(is.na(length_line), 0, length_line),
-           pixel_area = as.numeric(st_area(geom)),
-           density = length_line/pixel_area,
-           STUSPS = STUSPS.x) %>%
-    dplyr::select(hexid4k, STUSPS, length_line, pixel_area, density)
+    sub_grid <- grids[x,] %>%
+      sf::st_join(., single_lines_hexid, join = st_intersects) %>%
+      dplyr::mutate(hexid4k = hexid4k.x) %>%
+      dplyr::group_by(hexid4k) %>%
+      summarize(length_line = sum(length_line)) %>%
+      mutate(pixel_area = as.numeric(st_area(geom)),
+             density = length_line/pixel_area) %>%
+      dplyr::select(hexid4k, length_line, density, pixel_area)
   return(sub_grid)
 }
 
 # functions for c_data_prep_human_density.R ---------------------------------------------
 
 get_lags <- function(extract_to, extract_from, start_date, time_lag) {
-  
+
   # capture the variable name and statistic to be incorporated in the output column name
   if (exists('extract_from$statistic')) {
     variable <- paste0(extract_from$variable[1], '_', extract_from$statistic[1])
   } else {
     variable <- 'housing_density'
   }
-  
+
   # internal function to create a lagged date
   lag_date <- function(start_date, time_lag) {
     require(magrittr)
     require(tidyverse)
     require(lubridate)
-    
+
     # breakup the start date into its components
     y <- year(start_date)
     m <- month(start_date)
     d <- day(start_date)
-    
+
     # calculate the new lagged year
     y <- y + (m - time_lag - 1) %/% 12
-    
+
     # calculate the new lagged month
     m <- ifelse(((m - time_lag) %% 12) == 0, 12, (m - time_lag) %% 12)
-    
+
     # stitch the new lagged date together
     as.Date(paste0(y, "-", m, "-", d))
   }
-  
+
   # remove the sf data - increases efficiency
   if (exists('extract_to$geom')) {
     extract_to <- extract_to %>%
       as.data.frame() %>%
       select(-geom)
   }
-  
+
   # pair down to the extract_from to allow for easier left_join
   extract_from <- extract_from %>%
     select('FPA_ID', 'year_month_day', 'value')
-  
+
   for (j in 0:time_lag) {
     require(magrittr)
     require(tidyverse)
-    
+
     # create a lagged data year column that can be joined and extracted upon
     extract_to[, paste0(variable, '_lag_', j)]  <- extract_to %>%
       dplyr::mutate(ymd_lagged = lag_date(start_date = start_date, time_lag = j)) %>%
@@ -264,10 +264,10 @@ get_lags <- function(extract_to, extract_from, start_date, time_lag) {
 impute_density <- function(df) {
   # Interpolate for each month and year from 1992 - 2015
   # using a simple linear sequence given decadal values
-  
+
   require(tidyverse)
   require(magrittr)
-  
+
   year_seq <- min(df$year):max(df$year)
   predict_seq <- seq(min(df$year),
                      max(df$year),
@@ -293,7 +293,7 @@ impute_density <- function(df) {
 impute_in_parallel <- function (input_tibble, x) {
   require(tidyverse)
   require(magrittr)
-  
+
   extraction_df <- input_tibble[x,] %>%
     dplyr::select(-year_month_day) %>%
     gather(variable, value, -FPA_ID, -PBG00, -STATE) %>%
@@ -308,11 +308,11 @@ impute_in_parallel <- function (input_tibble, x) {
       )
     ) %>%
     do(impute_density(.))
-  
+
   # reduce the size of the dataframe to be joined during the get_climate_lags
   sub_df <- input_tibble[x,] %>%
     dplyr::select(FPA_ID, PBG00, year_month_day)
-  
+
   fpa_out <-
     get_lags(
       extract_to = sub_df,
@@ -321,7 +321,7 @@ impute_in_parallel <- function (input_tibble, x) {
       time_lag = 0
     ) %>%
     dplyr::select(-year_month_day)
-  
+
   return(fpa_out)
 }
 
