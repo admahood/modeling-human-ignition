@@ -51,7 +51,7 @@ if (!file.exists(file.path(transportation_density_dir, "secondary_rds_density.gp
 if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpkg"))) {
 
   sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfExport(c('tertiary_rds', 'hexnet_4k'))
+  sfExport('tertiary_rds', 'hexnet_4k')
   sfSource('src/functions/helper_functions.R')
 
   tertiary_rds_density <- sfLapply(seq_along(1:nrow(hexnet_4k)),
