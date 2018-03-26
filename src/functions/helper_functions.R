@@ -187,23 +187,24 @@ get_density <- function(x, grids, lines) {
   require(tidyverse)
   require(lubridate)
   require(sf)
+  sub_grids <- subset(grids, grids$hexid4k == x)
 
   single_lines_hexid <- lines %>%
     sf::st_cast(., "MULTILINESTRING", group_or_split = FALSE) %>%
-    sf::st_intersection(., grids[x,]) %>%
+    sf::st_intersection(., sub_grids) %>%
     dplyr::select(hexid4k, STUSPS, geometry) %>%
     dplyr::mutate(length_line = st_length(.),
                   length_line = ifelse(is.na(length_line), 0, length_line))
 
-  sub_grid <- grids[x,] %>%
+  sub_grids <- sub_grids %>%
     sf::st_join(., single_lines_hexid, join = st_intersects) %>%
     dplyr::mutate(hexid4k = hexid4k.x) %>%
     dplyr::group_by(hexid4k) %>%
-    summarize(length_line = sum(length_line)) %>%
-    mutate(pixel_area = as.numeric(st_area(geom)),
+    dplyr::summarize(length_line = sum(length_line)) %>%
+    dplyr::mutate(pixel_area = as.numeric(st_area(geom)),
            density = length_line/pixel_area) %>%
     dplyr::select(hexid4k, length_line, density, pixel_area)
-  return(sub_grid)
+  return(sub_grids)
 }
 
 # functions for c_data_prep_human_density.R ---------------------------------------------
@@ -291,6 +292,41 @@ impute_density <- function(df) {
   res
 }
 
+impute_in_parallel <- function(data, x) {
+
+  sub_data <- subset(data, data$FPA_ID == x)
+
+  extraction_df <- sub_data %>%
+    dplyr::select(-year_month_day) %>%
+    gather(variable, value, -FPA_ID, -PBG00, -STATE) %>%
+    mutate(value = ifelse(value == -999, is.na(value), value)) %>%
+    filter(!is.na(value)) %>%
+    mutate(
+      year = case_when(
+        .$variable == 'HDEN90' ~ 1990,
+        .$variable == 'HDEN00' ~ 2000,
+        .$variable == 'HDEN10' ~ 2010,
+        .$variable == 'HDEN20' ~ 2020
+      )
+    ) %>%
+    do(impute_density(.))
+
+  # reduce the size of the dataframe to be joined during the get_climate_lags
+  sub_df <- sub_data %>%
+    dplyr::select(FPA_ID, PBG00, year_month_day) %>%
+    mutate(year_month_day = as.Date(year_month_day, origin="1970-01-01"))
+
+  fpa_out <-
+    get_lags(
+      extract_to = sub_df,
+      extract_from = extraction_df,
+      start_date = sub_df$year_month_day,
+      time_lag = 0
+    ) %>%
+    dplyr::select(-year_month_day)
+
+  fpa_out
+}
 # Functions for `d_rasterize_anthro.R` ------------------------------------
 
 shp_rst <- function(y, x, lvl, j){
