@@ -3,6 +3,7 @@ Icon
 .Rhistory
 .Rapp.history
 .DS_Store
+.bash_history
 
 # Session Data files
 .RData
