@@ -128,3 +128,23 @@ if (!exists("tertiary_rds")) {
     tertiary_rds <- sf::st_read(dsn = file.path(transportation_processed_dir, "tertiary_rds.gpkg"))
   }
 }
+
+if (!exists("tertiary_rds_union")) {
+  if (!file.exists(file.path(transportation_processed_dir, "tertiary_rds_union.gpkg"))) {
+
+    tertiary_rds_union <- st_union(tertiary_rds)
+
+    sf::st_write(tertiary_rds_union,
+                 file.path(transportation_processed_dir, "tertiary_rds_union.gpkg"),
+                 driver = "GPKG")
+
+    system(paste0("aws s3 sync ",
+                  transportation_processed_dir, " ",
+                  s3_proc_prefix, "transportation/processed"))
+
+  } else {
+
+    tertiary_rds_union <- sf::st_read(dsn = file.path(transportation_processed_dir, "tertiary_rds_union.gpkg"))
+
+  }
+}
