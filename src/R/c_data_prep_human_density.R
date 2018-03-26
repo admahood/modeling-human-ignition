@@ -25,12 +25,9 @@ if (!exists("pop_den_cleaned")) {
   }
 }
 
-num_of_cores <- parallel::detectCores()
-data_per_core <- floor(nrow(pop_den_cleaned)/num_of_cores)
-
 # we take random rows to each cluster, by sampleid
 pop_den_cleaned <- pop_den_cleaned %>%
-  mutate(sampled = sample(1:num_of_cores, nrow(.), replace = TRUE))
+  mutate(sampled = sample(1:parallel::detectCores(), nrow(.), replace = TRUE))
 
 pop_den_list <- as.data.frame(pop_den_cleaned) %>%
   dplyr::select(PBG00, FPA_ID, STATE, year_month_day, HDEN90, HDEN00, HDEN10, HDEN20, sampled) %>%
