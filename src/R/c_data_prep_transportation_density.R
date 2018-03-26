@@ -50,14 +50,39 @@ if (!file.exists(file.path(transportation_density_dir, "secondary_rds_density.gp
 
 if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpkg"))) {
 
+  num_of_cores <- parallel::detectCores()
+  data_per_core <- floor(nrow(hexnet_4k)/num_of_cores)
+
+  # we take random rows to each cluster, by sampleid
+  hexnet_4k <- hexnet_4k %>%
+    mutate(sampled = sample(1:num_of_cores, nrow(.), replace = TRUE))
+
+  hexnet_list <- as.data.frame(hexnet_4k) %>%
+    split_tibble_to_list(., .$sampled)
+
   sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfExport('tertiary_rds', 'hexnet_4k')
+  sfExport('tertiary_rds_union')
   sfSource('src/functions/helper_functions.R')
 
-  tertiary_rds_density <- sfLapply(seq_along(1:nrow(hexnet_4k)),
-                                   fun = get_density,
-                                   lines = tertiary_rds,
-                                   grids = hexnet_4k)
+  tertiary_rds_density <- sfLapply(hexnet_list,
+    function (input_list) {
+      require(tidyverse)
+      require(magrittr)
+      require(lubridate)
+      require(lubridate)
+      require(sf)
+
+      sub_tib <- do.call(cbind, input_tibble) %>%
+        as_tibble %>%
+        dplyr::select(-sampled)
+      unique_ids <- unique(sub_tib$hexid4k)
+
+      lapply(unique_ids,
+        FUN = get_density,
+        grids = sub_tib,
+        lines = tertiary_rds_union)
+        }
+      )
 
   sfStop()
 
