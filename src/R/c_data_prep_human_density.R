@@ -30,7 +30,7 @@ data_per_core <- floor(nrow(pop_den_cleaned)/num_of_cores)
 
 # we take random rows to each cluster, by sampleid
 pop_den_cleaned <- pop_den_cleaned %>%
-  mutate(sampled = sample(1:num_of_cores, nrow(.), replace = T))
+  mutate(sampled = sample(1:num_of_cores, nrow(.), replace = TRUE))
 
 pop_den_list <- as.data.frame(pop_den_cleaned) %>%
   dplyr::select(PBG00, FPA_ID, STATE, year_month_day, HDEN90, HDEN00, HDEN10, HDEN20, sampled) %>%
@@ -49,44 +49,11 @@ fp_pop_den_summaries <- sfLapply(pop_den_list, function (input_tibble) {
     dplyr::select(-sampled)
   unique_ids <- sub_tib$FPA_ID
 
-    lapply(unique_ids,
-         data = sub_tib,
-         function(data, x) {
-
-           sub_data <- subset(data, data$FPA_ID == x)
-
-           extraction_df <- sub_data %>%
-             dplyr::select(-year_month_day) %>%
-             gather(variable, value, -FPA_ID, -PBG00, -STATE) %>%
-             mutate(value = ifelse(value == -999, is.na(value), value)) %>%
-             filter(!is.na(value)) %>%
-             mutate(
-               year = case_when(
-                 .$variable == 'HDEN90' ~ 1990,
-                 .$variable == 'HDEN00' ~ 2000,
-                 .$variable == 'HDEN10' ~ 2010,
-                 .$variable == 'HDEN20' ~ 2020
-               )
-             ) %>%
-             do(impute_density(.))
-
-           # reduce the size of the dataframe to be joined during the get_climate_lags
-           sub_df <- sub_data %>%
-             dplyr::select(FPA_ID, PBG00, year_month_day) %>%
-             mutate(year_month_day = as.Date(year_month_day, origin="1970-01-01"))
-
-           fpa_out <-
-             get_lags(
-               extract_to = sub_df,
-               extract_from = extraction_df,
-               start_date = sub_df$year_month_day,
-               time_lag = 0
-             ) %>%
-             dplyr::select(-year_month_day)
-
-           fpa_out
-         })
-})
+  lapply(unique_ids,
+    FUN = impute_in_parallel,
+    data = sub_tib)
+    }
+  )
 
 sfStop()
 
@@ -100,10 +67,12 @@ flattenlist <- function(x){
     return(out)
   }
 }
+
 extraction_df <- flattenlist(fp_pop_den_summaries) %>%
   bind_rows()
 
+extraction_df %>%
+  write_rds(., file.path(popden_extract, "pop_den_extraction.rds"))
 
-write_rds(., file.path(popden_extract, "pop_den_extraction.rds"))
 
 system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
