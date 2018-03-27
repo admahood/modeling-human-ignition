@@ -86,13 +86,13 @@ if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpk
   }
 
   hexnet_list <- hexnet_4k %>%
-    split(., .$sampled)
+    split(., .$STUSPS)
 
-  sfInit(parallel = TRUE, cpus = num_cores)
-  sfExport('tertiary_hex')
-  sfSource('src/functions/helper_functions.R')
+  # sfInit(parallel = TRUE, cpus = num_cores)
+  # sfExport('tertiary_hex')
+  # sfSource('src/functions/helper_functions.R')
 
-  tertiary_rds_density <- sfLapply(hexnet_4k,
+  tertiary_rds_density <- lapply(hexnet_list,
     function (input_list) {
       require(tidyverse)
       require(magrittr)
@@ -107,10 +107,10 @@ if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpk
         FUN = get_density,
         grids = sub_grid,
         lines = tertiary_hex)
-        }
-      )
+    }
+    )
 
-  sfStop()
+  # sfStop()
 
   extraction_df <- flattenlist(tertiary_rds_density) %>%
     do.call(rbind, .)
