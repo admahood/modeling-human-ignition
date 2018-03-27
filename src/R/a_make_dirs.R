@@ -47,6 +47,7 @@ anthro_proc_dir <- file.path(processed_dir, 'anthro')
 transportation_dir <- file.path(processed_dir, 'transportation')
 transportation_density_dir <- file.path(transportation_dir, 'density')
 transportation_processed_dir <- file.path(transportation_dir, 'processed')
+per_state <- file.path(transportation_density_dir, "per_state")
 
 # create direcotires to hold climate summary outputs
 summaries_dir <- file.path(summary_dir, "climate_extractions")
@@ -74,6 +75,6 @@ var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix, s
                 nlcd_pdi_01_prefix, nlcd_pdi_06_prefix, nlcd_pdi_11_prefix, summary_mean,
                 summary_95th, summary_numdays95th, terrain_dir, transportation_dir, anthro_proc_dir,
                 transportation_density_dir, transportation_processed_dir, anthro_dir,
-                terrain_extract, popden_extract)
+                terrain_extract, popden_extract, per_state)
 
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
