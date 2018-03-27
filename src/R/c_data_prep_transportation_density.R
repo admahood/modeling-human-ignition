@@ -72,15 +72,15 @@ if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpk
                     s3_proc_prefix, "transportation/processed"))
     } else {
 
-      tertiary_hex <- sf::st_read(dsn = file.path(transportation_processed_dir, "tertiary_rds_hex.gpkg")) %>%
-        as.data.frame() %>%
-        dplyr::select(-sampled) %>%
-        left_join(., as.data.frame(hexnet_4k), by = 'hexid4k') %>%
-        dplyr::select(LINEARID, hexid4k, STUSPS.x, geom.x, sampled) %>%
-        mutate(STUSPS = STUSPS.x,
-               geom = geom.x) %>%
-        dplyr::select(LINEARID, hexid4k, STUSPS, sampled, geom) %>%
-        st_as_sf()
+      tertiary_hex <- sf::st_read(dsn = file.path(transportation_processed_dir, "tertiary_rds_hex.gpkg")) # %>%
+        # as.data.frame() %>%
+        # dplyr::select(-sampled) %>%
+        # left_join(., as.data.frame(hexnet_4k), by = 'hexid4k') %>%
+        # dplyr::select(LINEARID, hexid4k, STUSPS.x, geom.x, sampled) %>%
+        # mutate(STUSPS = STUSPS.x,
+        #        geom = geom.x) %>%
+        # dplyr::select(LINEARID, hexid4k, STUSPS, sampled, geom) %>%
+        # st_as_sf()
 
     }
   }
@@ -102,21 +102,27 @@ if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpk
 
       sub_grid <- dplyr:::bind_cols(input_list)
       unique_ids <- unique(sub_grid$hexid4k)
-      state_name <- names(sub_grid)
+      state_name <- unique(sub_grid$STUSPS)[1]
 
       print(paste0('Working on ', state_name))
 
+      if (!file.exists(file.path(per_state, paste0('tertiary_density_', state_name, '.gpkg')))) {
       got_density <- lapply(unique_ids,
         FUN = get_density,
         grids = sub_grid,
         lines = tertiary_hex)
 
-      state_name <- names(got_density)
       print(paste0('Finishing ', state_name))
-
       print(paste0('Writing ', state_name))
 
+      got_density <- flattenlist(got_density) %>%
+        do.call(rbind, .)
+
       st_write(got_density, file.path(per_state, paste0('tertiary_density_', state_name, '.gpkg')))
+      system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
+      } else {
+        print(pate0('Skipping ', state_name, ' ; already created it!'))
+      }
 
       return(got_density)
     }
