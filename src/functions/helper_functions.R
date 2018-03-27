@@ -188,11 +188,11 @@ get_density <- function(x, grids, lines) {
   require(lubridate)
   require(sf)
   sub_grids <- subset(grids, grids$hexid4k == x)
+  sub_lines <- subset(lines, lines$hexid4k == x)
 
-  single_lines_hexid <- lines %>%
-    sf::st_cast(., "MULTILINESTRING", group_or_split = FALSE) %>%
+  single_lines_hexid <- sub_lines %>%
     sf::st_intersection(., sub_grids) %>%
-    dplyr::select(hexid4k, STUSPS, geometry) %>%
+    dplyr::select(hexid4k, STUSPS) %>%
     dplyr::mutate(length_line = st_length(.),
                   length_line = ifelse(is.na(length_line), 0, length_line))
 
@@ -202,10 +202,11 @@ get_density <- function(x, grids, lines) {
     dplyr::group_by(hexid4k) %>%
     dplyr::summarize(length_line = sum(length_line)) %>%
     dplyr::mutate(pixel_area = as.numeric(st_area(geom)),
-           density = length_line/pixel_area) %>%
+                  density = length_line/pixel_area) %>%
     dplyr::select(hexid4k, length_line, density, pixel_area)
   return(sub_grids)
 }
+
 
 # functions for c_data_prep_human_density.R ---------------------------------------------
 
