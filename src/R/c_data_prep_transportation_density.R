@@ -102,15 +102,29 @@ if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpk
 
       sub_grid <- dplyr:::bind_cols(input_list)
       unique_ids <- unique(sub_grid$hexid4k)
+      state_name <- names(sub_grid)
 
-      lapply(unique_ids,
+      print(paste0('Working on ', state_name))
+
+      got_density <- lapply(unique_ids,
         FUN = get_density,
         grids = sub_grid,
         lines = tertiary_hex)
+
+      state_name <- names(got_density)
+      print(paste0('Finishing ', state_name))
+
+      print(paste0('Writing ', state_name))
+
+      st_write(got_density, file.path(per_state, paste0('tertiary_density_', state_name, '.gpkg')))
+
+      return(got_density)
     }
     )
 
   # sfStop()
+
+
 
   extraction_df <- flattenlist(tertiary_rds_density) %>%
     do.call(rbind, .)
