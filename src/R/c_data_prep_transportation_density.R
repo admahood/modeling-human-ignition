@@ -49,7 +49,7 @@ if (!file.exists(file.path(transportation_density_dir, "secondary_rds_density.gp
 }
 
 if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpkg"))) {
-  num_cores <- parallel::detectCores()
+  num_cores <- 4 #parallel::detectCores()
 
   hexnet_4k <- hexnet_4k %>%
     mutate(sampled = sample(1:num_cores, nrow(.), replace = TRUE))
@@ -72,7 +72,15 @@ if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpk
                     s3_proc_prefix, "transportation/processed"))
     } else {
 
-      tertiary_hex <- sf::st_read(dsn = file.path(transportation_processed_dir, "tertiary_rds_hex.gpkg"))
+      tertiary_hex <- sf::st_read(dsn = file.path(transportation_processed_dir, "tertiary_rds_hex.gpkg")) %>%
+        as.data.frame() %>%
+        dplyr::select(-sampled) %>%
+        left_join(., as.data.frame(hexnet_4k), by = 'hexid4k') %>%
+        dplyr::select(LINEARID, hexid4k, STUSPS.x, geom.x, sampled) %>%
+        mutate(STUSPS = STUSPS.x,
+               geom = geom.x) %>%
+        dplyr::select(LINEARID, hexid4k, STUSPS, sampled, geom) %>%
+        st_as_sf()
 
     }
   }
@@ -80,14 +88,11 @@ if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpk
   hexnet_list <- hexnet_4k %>%
     split(., .$sampled)
 
-  tertiary_list <- tertiary_hex %>%
-    split(., .$sampled)
-
-  sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfExport('tertiary_rds_slim')
+  sfInit(parallel = TRUE, cpus = num_cores)
+  sfExport('tertiary_hex')
   sfSource('src/functions/helper_functions.R')
 
-  tertiary_rds_density <- sfLapply(hexnet_list,
+  tertiary_rds_density <- sfLapply(hexnet_4k,
     function (input_list) {
       require(tidyverse)
       require(magrittr)
@@ -95,18 +100,20 @@ if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpk
       require(lubridate)
       require(sf)
 
-      sub_grid <- do.call(cbind, input_list) %>%
-        dplyr::select(-sampled)
+      sub_grid <- dplyr:::bind_cols(input_list)
       unique_ids <- unique(sub_grid$hexid4k)
 
       lapply(unique_ids,
         FUN = get_density,
         grids = sub_grid,
-        lines = tertiary_rds)
+        lines = tertiary_hex)
         }
       )
 
   sfStop()
+
+  extraction_df <- flattenlist(tertiary_rds_density) %>%
+    do.call(rbind, .)
 
   tertiary_rds_density <- get_density(unique_states, hex_list, tertiary_rds_list, ncores = 16)
 

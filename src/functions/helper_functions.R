@@ -8,6 +8,17 @@ split_tibble_to_list <- function (x, f, drop = FALSE, ...) {
          function(ind) faster_as_tibble(lapply(x, "[", ind)))
 }
 
+# convert to a data frame
+flattenlist <- function(x){
+  morelists <- sapply(x, function(xprime) class(xprime)[1]=="list")
+  out <- c(x[!morelists], unlist(x[morelists], recursive=FALSE))
+  if(sum(morelists)){
+    Recall(out)
+  }else{
+    return(out)
+  }
+}
+
 st_par <- function(sf_df, sf_func, n_cores, ...){
   # http://www.spatialanalytics.co.nz/post/2017/09/11/a-parallel-function-for-spatial-analysis-in-r/
   # Paralise any simple features analysis.
@@ -187,10 +198,12 @@ get_density <- function(x, grids, lines) {
   require(tidyverse)
   require(lubridate)
   require(sf)
-  sub_grids <- subset(grids, grids$hexid4k == x)
-  sub_lines <- subset(lines, lines$hexid4k == x)
 
-  single_lines_hexid <- sub_lines %>%
+  sub_grids <- grids %>%
+    dplyr::filter(hexid4k == x)
+
+  single_lines_hexid <- lines %>%
+    dplyr::filter(hexid4k == x) %>%
     sf::st_intersection(., sub_grids) %>%
     dplyr::select(hexid4k, STUSPS) %>%
     dplyr::mutate(length_line = st_length(.),
