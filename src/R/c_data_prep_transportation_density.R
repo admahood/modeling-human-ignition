@@ -49,14 +49,42 @@ if (!file.exists(file.path(transportation_density_dir, "secondary_rds_density.gp
 }
 
 if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpkg"))) {
+  num_cores <- parallel::detectCores()
+
+  hexnet_4k <- hexnet_4k %>%
+    mutate(sampled = sample(1:num_cores, nrow(.), replace = TRUE))
+
+  if (!exists("tertiary_hex")) {
+    if (!file.exists(file.path(transportation_processed_dir, "tertiary_rds_hex.gpkg"))) {
+
+      tertiary_hex <- tertiary_rds %>%
+        dplyr::select(LINEARID, STUSPS) %>%
+        st_join(., hexnet_4k, join = st_intersects) %>%
+        mutate(STUSPS = STUSPS.x) %>%
+        dplyr::select(LINEARID, hexid4k, STUSPS, sampled)
+
+      sf::st_write(tertiary_hex,
+                   file.path(transportation_processed_dir, "tertiary_rds_hex.gpkg"),
+                   driver = "GPKG")
+
+      system(paste0("aws s3 sync ",
+                    transportation_processed_dir, " ",
+                    s3_proc_prefix, "transportation/processed"))
+    } else {
+
+      tertiary_hex <- sf::st_read(dsn = file.path(transportation_processed_dir, "tertiary_rds_hex.gpkg"))
+
+    }
+  }
 
   hexnet_list <- hexnet_4k %>%
-    mutate(sampled = sample(1:parallel::detectCores(), nrow(.), replace = TRUE)) %>%
-    as.data.frame(.) %>%
-    split_tibble_to_list(., .$sampled)
+    split(., .$sampled)
+
+  tertiary_list <- tertiary_hex %>%
+    split(., .$sampled)
 
   sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfExport('tertiary_rds')
+  sfExport('tertiary_rds_slim')
   sfSource('src/functions/helper_functions.R')
 
   tertiary_rds_density <- sfLapply(hexnet_list,
@@ -67,14 +95,13 @@ if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpk
       require(lubridate)
       require(sf)
 
-      sub_tib <- do.call(cbind, input_list) %>%
-        as_tibble %>%
+      sub_grid <- do.call(cbind, input_list) %>%
         dplyr::select(-sampled)
-      unique_ids <- unique(sub_tib$hexid4k)
+      unique_ids <- unique(sub_grid$hexid4k)
 
       lapply(unique_ids,
         FUN = get_density,
-        grids = sub_tib,
+        grids = sub_grid,
         lines = tertiary_rds)
         }
       )
