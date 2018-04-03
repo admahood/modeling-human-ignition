@@ -1,9 +1,11 @@
 
+# List all decadal tiffs from the CIESIN gridded census products
 anthro_list <- list.files(file.path(anthro_dir, 'gridded_census'),
                           pattern = '*.tif',
                           full.names = TRUE,
                           recursive = TRUE)
 
+# Extract all of the gridded products by each FPA-FOD fire iginition point in parallel
 sfInit(parallel = TRUE, cpus = parallel::detectCores())
 sfExport(list = c("fpa_clean"))
 
@@ -12,8 +14,13 @@ extractions <- sfLapply(as.list(anthro_list),
                         shp_mask = fpa_clean)
 sfStop()
 
+# Push the csv outputs to S3 so we do not have to re-run this
+system("aws s3 sync data/anthro/gridded_census s3://earthlab-modeling-human-ignitions/anthro/gridded_census")
+
+# Quick check to make sure the extractions have been taken for each of the FPA-FOD points
 stopifnot(all(lapply(extractions, nrow) == nrow(fpa_clean)))
 
+# Create a 'master' extractions table with all of the raw decadal values
 extraction_df <- extractions %>%
   bind_cols %>%
   as_tibble %>%
@@ -25,8 +32,12 @@ extraction_df <- extractions %>%
          STATE = data.frame(fpa_clean)$STATE) %>%
   dplyr::select(-starts_with('X')) 
 
+extraction_df %>%
+  write_rds(., file.path(anthro_dir, 'gridded_census', "ciesin_extraction.rds"))
+
+system("aws s3 sync data/anthro/gridded_census s3://earthlab-modeling-human-ignitions/anthro/gridded_census")
+
 # Bachelors degree
-extraction_df$STATE <- droplevels(extraction_df$STATE)
 ba_list <- extraction_df %>%
   dplyr::select(ID, FPA_ID, year_month_day, STATE, usba00, usba90) %>%
   mutate(usba10 = NA,
@@ -47,11 +58,62 @@ ba_list <- extraction_df %>%
   dplyr::ungroup() %>%
   split(., .$STATE)
 
-
 sfInit(parallel = TRUE, cpus = parallel::detectCores())
 sfSource('src/functions/helper_functions.R')
 
 ba_summaries <- sfLapply(ba_list, function (input_tibble) {
+  require(tidyverse)
+  require(magrittr)
+  require(lubridate)
+  sub_tib <- bind_cols(input_tibble) %>%
+    as_tibble 
+  unique_ids <- unique(sub_tib$FPA_ID)
+  
+  lapply(unique_ids,
+         FUN = impute_in_parallel_ciesin,
+         data = sub_tib)
+  }
+  )
+
+sfStop()
+
+ba_df <- flattenlist(ba_summaries) %>%
+  bind_rows() %>%
+  distinct(.keep_all = TRUE) %>%
+  mutate(bachelor_degree = pop_bach_degree_lag_0,
+         bachelor_degree = if_else(bachelor_degree < 0, 0, bachelor_degree)) %>%
+  dplyr::select(FPA_ID, bachelor_degree)
+
+ba_df %>%
+  write_rds(., file.path(anthro_extract, "bachelor_degree_extraction.rds"))
+
+system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
+
+# Below the poverty line by 200%
+bpv200_list <- extraction_df %>%
+  dplyr::select(ID, FPA_ID, year_month_day, STATE, uspov00, uspov90) %>%
+  mutate(uspov10 = NA,
+         uspov20 = NA) %>%
+  gather(variable, value, -FPA_ID, -ID, -year_month_day, -STATE) %>%
+  mutate(year = case_when(
+    .$variable == 'uspov90' ~ 1990,
+    .$variable == 'uspov00' ~ 2000,
+    .$variable == 'uspov10' ~ 2010,
+    .$variable == 'uspov20' ~ 2020
+  )) %>% 
+  dplyr::group_by(FPA_ID) %>%
+  arrange(FPA_ID, year) %>% 
+  dplyr::mutate(
+    value = spline(x = year, y = value, xout = year)$y,
+    value = if_else(value < 0, 0, value),
+    variable = 'bpov_200') %>% 
+  dplyr::ungroup() %>%
+  split(., .$STATE)
+
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfSource('src/functions/helper_functions.R')
+
+bpv200_summaries <- sfLapply(bpv200_list, function (input_tibble) {
   require(tidyverse)
   require(magrittr)
   require(lubridate)
@@ -67,12 +129,17 @@ ba_summaries <- sfLapply(ba_list, function (input_tibble) {
 
 sfStop()
 
-extraction_df <- flattenlist(ba_summaries) %>%
+bpv200_df <- flattenlist(bpv200_summaries) %>%
   bind_rows() %>%
   distinct(.keep_all = TRUE) %>%
-  mutate(bachelor_degree = pop_bach_degree_lag_0,
-         bachelor_degree = if_else(bachelor_degree < 0, 0, bachelor_degree)) %>%
-  dplyr::select(FPA_ID, bachelor_degree)
+  mutate(bpov_200 = bpov_200_lag_0,
+         bpov_200 = if_else(bpov_200 < 0, 0, bpov_200)) %>%
+  dplyr::select(FPA_ID, bpov_200)
+
+bpv200_df %>%
+  write_rds(., file.path(anthro_extract, "bpov_200_extraction.rds"))
+
+system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
 
 
 # import and transform the SILVIS lab partial census block housing density data
