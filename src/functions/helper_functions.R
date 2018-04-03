@@ -118,6 +118,20 @@ extract_one <- function(filename, shapefile_extractor) {
   res
 }
 
+extract_anthro <- function(filename, shp_mask) {
+  out_name <- gsub('.tif', '.csv', filename)
+  if (!file.exists(out_name)) {
+    r <- raster::raster(filename)
+    raster::values(r)[raster::values(r) == -999] <- NA
+    res <- raster::extract(r, shp_mask,
+                           na.rm = TRUE, df = TRUE)
+    write.csv(res, file = out_name)
+  } else {
+    res <- read.csv(out_name)
+  }
+  res
+}
+
 check_tifs <- function(j, i, ...) {
   # checks whether the statistic being evaluated has the variable data
   # if not then returns NULL which allows the larger loop below to skip the inputs
@@ -229,7 +243,7 @@ get_lags <- function(extract_to, extract_from, start_date, time_lag) {
   if (exists('extract_from$statistic')) {
     variable <- paste0(extract_from$variable[1], '_', extract_from$statistic[1])
   } else {
-    variable <- 'housing_density'
+    variable <- extract_from$variable[1]
   }
 
   # internal function to create a lagged date
@@ -280,15 +294,15 @@ get_lags <- function(extract_to, extract_from, start_date, time_lag) {
 impute_density <- function(df) {
   # Interpolate for each month and year from 1992 - 2015
   # using a simple linear sequence given decadal values
-
+  
   require(tidyverse)
   require(magrittr)
-
+  
   year_seq <- min(df$year):max(df$year)
   predict_seq <- seq(min(df$year),
                      max(df$year),
                      length.out = (length(year_seq) - 1) * 12)
-  preds <- approx(x = df$year,
+  preds <- spline(x = df$year,
                   y = df$value,
                   xout = predict_seq)
   res <- as_tibble(preds) %>%
@@ -301,8 +315,8 @@ impute_density <- function(df) {
                                        '-'))
     ) %>%
     filter(year < 2016)
-  res$PBG00 <- unique(df$PBG00)
   res$FPA_ID <- unique(df$FPA_ID)
+  res$variable <- unique(df$variable)
   res
 }
 
@@ -341,6 +355,32 @@ impute_in_parallel <- function(data, x) {
 
   fpa_out
 }
+
+impute_in_parallel_ciesin <- function(data, x) {
+  
+  sub_data <- subset(data, data$FPA_ID == x)
+  
+  extraction_df <- sub_data %>%
+    dplyr::select(-year_month_day) %>%
+    do(impute_density(.))
+  
+  # reduce the size of the dataframe to be joined during the get_climate_lags
+  sub_df <- sub_data %>%
+    dplyr::select(FPA_ID, year_month_day) %>%
+    mutate(year_month_day = as.Date(year_month_day, origin="1970-01-01"))
+  
+  fpa_out <-
+    get_lags(
+      extract_to = sub_df,
+      extract_from = extraction_df,
+      start_date = sub_df$year_month_day,
+      time_lag = 0
+    ) %>%
+    dplyr::select(-year_month_day)
+  
+  fpa_out
+}
+
 # Functions for `d_rasterize_anthro.R` ------------------------------------
 
 shp_rst <- function(y, x, lvl, j){
