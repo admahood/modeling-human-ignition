@@ -30,45 +30,92 @@ extraction_df <- extractions %>%
   mutate(FPA_ID = data.frame(fpa_clean)$FPA_ID,
          year_month_day = data.frame(fpa_clean)$year_month_day,
          STATE = data.frame(fpa_clean)$STATE) %>%
-  dplyr::select(-starts_with('X')) 
+  dplyr::select(-starts_with('X'))
 
 extraction_df %>%
   write_rds(., file.path(anthro_dir, 'gridded_census', "ciesin_extraction.rds"))
 
 system("aws s3 sync data/anthro/gridded_census s3://earthlab-modeling-human-ignitions/anthro/gridded_census")
 
-# Bachelors degree
-ba_list <- extraction_df %>%
-  dplyr::select(ID, FPA_ID, year_month_day, STATE, usba00, usba90) %>%
+var_list <- extraction_df %>%
+  dplyr::select(-usarea00, -usarea10, -usarea90) %>%
   mutate(usba10 = NA,
-         usba20 = NA) %>%
+         usba20 = NA,
+         ussevp10 = NA,
+         ussevp20 = NA,
+         uspov10 = NA,
+         uspov20 = NA,
+         ushu20 = NA,
+         ushs10 = NA,
+         ushs20 = NA,
+         uslowi10 = NA,
+         uslowi20 = NA,
+         uspop20 = NA,
+         ussea20 = NA) %>%
   gather(variable, value, -FPA_ID, -ID, -year_month_day, -STATE) %>%
   mutate(year = case_when(
-    .$variable == 'usba90' ~ 1990,
+    .$variable == 'usba90' ~ 1990, # Population with a bachelors degree
     .$variable == 'usba00' ~ 2000,
     .$variable == 'usba10' ~ 2010,
-    .$variable == 'usba20' ~ 2020
-  )) %>% 
-  dplyr::group_by(FPA_ID) %>%
-  arrange(FPA_ID, year) %>% 
+    .$variable == 'usba20' ~ 2020,
+    .$variable == 'ussevp90' ~ 1990, # Population living 50% below the poverty line
+    .$variable == 'ussevp00' ~ 2000,
+    .$variable == 'ussevp10' ~ 2010,
+    .$variable == 'ussevp20' ~ 2020,
+    .$variable == 'uspov90' ~ 1990, # Population living 200% below the poverty line
+    .$variable == 'uspov00' ~ 2000,
+    .$variable == 'uspov10' ~ 2010,
+    .$variable == 'uspov20' ~ 2020,
+    .$variable == 'ushs90' ~ 1990, # Population with a high school degree
+    .$variable == 'ushs00' ~ 2000,
+    .$variable == 'ushs10' ~ 2010,
+    .$variable == 'ushs20' ~ 2020,
+    .$variable == 'ushu90' ~ 1990, # Number of housing units
+    .$variable == 'ushu00' ~ 2000,
+    .$variable == 'ushu10' ~ 2010,
+    .$variable == 'ushu20' ~ 2020,
+    .$variable == 'uslowi90' ~ 1990, # Population living below poverty level
+    .$variable == 'uslowi00' ~ 2000,
+    .$variable == 'uslowi10' ~ 2010,
+    .$variable == 'uslowi20' ~ 2020,
+    .$variable == 'uspop90' ~ 1990, # Population
+    .$variable == 'uspop00' ~ 2000,
+    .$variable == 'uspop10' ~ 2010,
+    .$variable == 'uspop20' ~ 2020,
+    .$variable == 'ussea90' ~ 1990, # Vacant housing unit, for seasonal, recreational or occasional use
+    .$variable == 'ussea00' ~ 2000,
+    .$variable == 'ussea10' ~ 2010,
+    .$variable == 'ussea20' ~ 2020
+  )) %>%
+  mutate(variable = if_else(grepl("usba", variable), 'bachelors_degree',
+                            if_else(grepl("ussevp", variable), 'pop_poverty_below_50',
+                                    if_else(grepl("uspov", variable), 'pop_poverty_below_200',
+                                            if_else(grepl("ushs", variable), 'highschool_degree',
+                                                    if_else(grepl("ushu", variable), 'housing_units',
+                                                            if_else(grepl("uslowi", variable), 'pop_poverty_below_line',
+                                                                    if_else(grepl("uspop", variable), 'population',
+                                                                            if_else(grepl("ussea", variable), 'vacant_housing_units', variable))))))))) %>%
+  dplyr::group_by(FPA_ID, variable) %>%
+  arrange(FPA_ID, variable, year) %>%
   dplyr::mutate(
     value = spline(x = year, y = value, xout = year)$y,
-    value = if_else(value < 0, 0, value),
-    variable = 'pop_bach_degree') %>% 
+    value = if_else(value < 0, 0, value)) %>%
+  arrange(FPA_ID, variable, year) %>%
   dplyr::ungroup() %>%
-  split(., .$STATE)
+  split(., .$variable)
 
 sfInit(parallel = TRUE, cpus = parallel::detectCores())
 sfSource('src/functions/helper_functions.R')
+sfExport('var_list')
 
-ba_summaries <- sfLapply(ba_list, function (input_tibble) {
+var_summaries <- sfLapply(var_list, function (input_tibble) {
   require(tidyverse)
   require(magrittr)
   require(lubridate)
   sub_tib <- bind_cols(input_tibble) %>%
-    as_tibble 
+    as_tibble
   unique_ids <- unique(sub_tib$FPA_ID)
-  
+
   lapply(unique_ids,
          FUN = impute_in_parallel_ciesin,
          data = sub_tib)
@@ -100,13 +147,13 @@ bpv200_list <- extraction_df %>%
     .$variable == 'uspov00' ~ 2000,
     .$variable == 'uspov10' ~ 2010,
     .$variable == 'uspov20' ~ 2020
-  )) %>% 
+  )) %>%
   dplyr::group_by(FPA_ID) %>%
-  arrange(FPA_ID, year) %>% 
+  arrange(FPA_ID, year) %>%
   dplyr::mutate(
     value = spline(x = year, y = value, xout = year)$y,
     value = if_else(value < 0, 0, value),
-    variable = 'bpov_200') %>% 
+    variable = 'bpov_200') %>%
   dplyr::ungroup() %>%
   split(., .$STATE)
 
@@ -118,9 +165,9 @@ bpv200_summaries <- sfLapply(bpv200_list, function (input_tibble) {
   require(magrittr)
   require(lubridate)
   sub_tib <- bind_cols(input_tibble) %>%
-    as_tibble 
+    as_tibble
   unique_ids <- unique(sub_tib$FPA_ID)
-  
+
   lapply(unique_ids,
          FUN = impute_in_parallel_ciesin,
          data = sub_tib)
