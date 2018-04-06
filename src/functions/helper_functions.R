@@ -50,10 +50,11 @@ load_data <- function(url, dir, layer, outname) {
     download.file(url, destfile = paste0(dir, ".zip"))
     unzip(paste0(dir, ".zip"),
           exdir = dir)
+    unlink(paste0(dir, ".zip"))
+    
   }
   name <- paste0(outname, "_shp")
   name <- sf::st_read(dsn = dir, layer = layer)
-
   name
 }
 
