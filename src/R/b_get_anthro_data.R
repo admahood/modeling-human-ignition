@@ -15,6 +15,19 @@ if (!file.exists(fpa_gdb)) {
                 s3_raw_prefix, "fpa-fod/",  "FPA_FOD_20170508.gdb/")) #destination
 }
 
+# Download ecoregion level 3
+ecol3_shp <- st_read(file.path(ecoregion_prefix, 'us_eco_l3.shp'))
+download_data("ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l3.zip",
+              ecoregion_prefix,
+              ecol3_shp,
+              'us_eco_l3')
+
+# Download ecoregion level 4
+ecol4_shp <- file.path(ecoregionl4_prefix, 'us_eco_l4_no_st.shp')
+download_data("ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l4.zip",
+              ecoregionl4_prefix,
+              ecol4_shp,
+              'us_eco_l4_no_st')
 
 # Download the roads
 roads_shp <- file.path(roads_prefix, 'tlgdb_2015_a_us_roads.gdb')
@@ -24,7 +37,7 @@ roads_shp,
 'tlgdb_2015_a_us_roads')
 
 # Download the railrods
-rails_shp <- file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb'))
+rails_shp <- file.path(rails_prefix, 'tlgdb_2015_a_us_rails.gdb')
 download_data("ftp://ftp2.census.gov/geo/tiger/TGRGDB15/tlgdb_2015_a_us_rails.gdb.zip",
 rails_prefix,
 rails_shp,
