@@ -131,8 +131,8 @@ extraction_df <- extractions %>%
   dplyr::select(-starts_with('ID'))
 
 # save processed/cleaned terrain extractions
-write_rds(extraction_df, file.path(processed_dir, 'terrain_extractions.rds'))
+write_rds(extraction_df, file.path(terrain_extract, 'terrain_extractions.rds'))
 
 system(paste0("aws s3 sync ",
-              terrain_dir, " ",
-              s3_proc_prefix))
+              summary_dir, " ",
+              s3_proc_extractions))
