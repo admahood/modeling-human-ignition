@@ -12,15 +12,22 @@ if (!exists("usa_shp")){
 
 # Download and import the Level 3 Ecoregions data
 # Download will only happen once as long as the file exists
-if (!exists("ecoregions")){
-  ecoregions <- load_data(url = "ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l3.zip",
-                          dir = ecoregion_prefix, layer = "us_eco_l3", outname = "ecoregion") %>%
+if (!exists("ecoregions_l3")){
+  ecoregions_l3 <- st_read(file.path(ecoregion_prefix, 'us_eco_l3.shp')) %>%
     sf::st_simplify(., preserveTopology = TRUE, dTolerance = 1000)  %>%
     sf::st_transform(st_crs(usa_shp)) %>%
     dplyr::mutate(NA_L3NAME = as.character(NA_L3NAME),
                   NA_L3NAME = ifelse(NA_L3NAME == 'Chihuahuan Desert',
                                      'Chihuahuan Deserts',
                                      NA_L3NAME))
+}
+
+# Download and import the Level 4 Ecoregions data
+# Download will only happen once as long as the file exists
+if (!exists("ecoregions_l4")){
+  ecoregions_l4 <- st_read(file.path(ecoregionl4_prefix, 'us_eco_l4_no_st.shp')) %>%
+    sf::st_simplify(., preserveTopology = TRUE, dTolerance = 1000)  %>%
+    sf::st_transform(st_crs(usa_shp))
 }
 
 # Create raster mask
