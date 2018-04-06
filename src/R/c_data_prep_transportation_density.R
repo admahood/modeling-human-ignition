@@ -72,6 +72,8 @@ if (!file.exists(file.path(transportation_density_dir, "railroad_density.gpkg"))
 
   system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
 
+} else {
+  railroad_density <- st_read(file.path(transportation_density_dir, "railroad_density.gpkg"))
 }
 
 if (!file.exists(file.path(transportation_density_dir, "transmission_lines_density.gpkg"))) {
@@ -140,6 +142,8 @@ if (!file.exists(file.path(transportation_density_dir, "transmission_lines_densi
 
   system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
 
+} else {
+  transmission_lines_density <- st_read(file.path(transportation_density_dir, "transmission_lines_density.gpkg"))
 }
 
 if (!file.exists(file.path(transportation_density_dir, "primary_rds_density.gpkg"))) {
@@ -209,6 +213,8 @@ if (!file.exists(file.path(transportation_density_dir, "primary_rds_density.gpkg
 
   system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
 
+} else {
+  primary_rds_density <- st_read(file.path(transportation_density_dir, "primary_rds_density.gpkg"))
 }
 
 if (!file.exists(file.path(transportation_density_dir, "secondary_rds_density.gpkg"))) {
@@ -277,6 +283,8 @@ if (!file.exists(file.path(transportation_density_dir, "secondary_rds_density.gp
 
   system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
 
+} else {
+  secondary_rds_density <- st_read(file.path(transportation_density_dir, "secondary_rds_density.gpkg"))
 }
 
 if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpkg"))) {
@@ -351,4 +359,7 @@ if (!file.exists(file.path(transportation_density_dir, "tertiary_rds_density.gpk
   st_write(tertiary_rds_density, file.path(transportation_density_dir, "tertiary_rds_density.gpkg"))
 
   system(paste0("aws s3 sync ", processed_dir, " ", s3_proc_prefix))
+}  else {
+  tertiary_rds_density <- st_read(file.path(transportation_density_dir, "tertiary_rds_density.gpkg"))
 }
+
