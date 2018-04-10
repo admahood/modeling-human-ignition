@@ -16,7 +16,7 @@ if (!file.exists(fpa_gdb)) {
 }
 
 # Download ecoregion level 3
-ecol3_shp <- st_read(file.path(ecoregion_prefix, 'us_eco_l3.shp'))
+ecol3_shp <- file.path(ecoregion_prefix, 'us_eco_l3.shp')
 download_data("ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l3.zip",
               ecoregion_prefix,
               ecol3_shp,
