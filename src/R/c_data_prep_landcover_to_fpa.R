@@ -5,7 +5,8 @@ landfiredb <- read.dbf("data/raw/landfire_esp/esp.dbf")
 
 fpa <- st_read("data/processed/fpa_ll.gpkg")
 
-fpa_s <- select(fpa, FPA_ID,STATE)
+fpa_s <- select(fpa, FPA_ID,STATE) %>%
+  st_transform(crs = crs(landfire, asText=TRUE))
 
 # R does not have a native function for mode?????? -------------------
 getmode <- function(v) {
@@ -15,7 +16,6 @@ getmode <- function(v) {
 
 # new approach - same as lyb baecv
 corz <- detectCores()
-fpa_s <- st_transform(fpa_s, crs = crs(landfire, asText=TRUE))
 states <- unique(fpa_s$STATE)
 
 results <- list()
@@ -23,26 +23,29 @@ for(i in 1:length(states)){
   sub_df <- fpa_s[fpa_s$STATE == states[i],]
   #crop landfire by state (extent of object), then split by cores, then parallelize
   print(as.character(states[i]))
-  sub_df <- sub_df[1:100,]
-  l <- split(sub_df, sample(1:corz, nrow(sub_df), replace=T))
-  
-  cl <- makeCluster(detectCores())
-  registerDoParallel(cl)
+  sub_df <- sub_df[1:10]
+
+  # cl <- makeCluster(detectCores())
+  # registerDoParallel(cl)
   # 
   # extract climate time series data based on point or polygon locations.
   # this extract is pulling in point data, so fun = mean does not matter
   # extractions <- foreach (i = tifs) %dopar% {
     t0<-Sys.time()
-    results <- foreach(i = 1:length(l)) %dopar% {
+    # results <- foreach(i = 1:length(l)) %dopar% {
       
-    raster::extract(landfire, sub_df, buffer = 1000,
-                           na.rm = TRUE, fun = function(x,...)getmode(x), df = TRUE)
+    sub_df$lf <- raster::extract(landfire, sub_df, buffer = 1000,
+                           na.rm = TRUE, fun = function(x,...)getmode(x))
     print(t0-Sys.time())  
-   }
-  stopCluster(cl)
+   # }
+  # stopCluster(cl)
+    results[[i]] <- sub_df
   
 }
 
+
+
+# current ending point with serialized method ----------------------------------------------
 # 
 # if (!exists("sp_grd")){
 #   pol <- st_as_sfc(st_bbox(landfire))
