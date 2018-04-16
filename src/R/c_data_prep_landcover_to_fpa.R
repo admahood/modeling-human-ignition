@@ -14,30 +14,45 @@ getmode <- function(v) {
   uniqv[base::which.max(tabulate(match(v, uniqv)))]
 }
 
-# new approach - same as lyb baecv
+# 
+
+t0 <- Sys.time()
 corz <- detectCores()
 states <- unique(fpa_s$STATE)
 
-results <- list()
-for(i in 1:length(states)){
-  sub_df <- fpa_s[fpa_s$STATE == states[i],]
-  #crop landfire by state (extent of object), then split by cores, then parallelize
-  print(as.character(states[i]))
-  sub_df <- sub_df[1:100,]
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
 
-    t0<-Sys.time()
+results <- list()
+results <- foreach(i = 44:length(states)) %dopar% {
+  require(sf)
+  require(raster)
+  
+  sub_df <- fpa_s[fpa_s$STATE == states[i],]
+  bb <- st_bbox(sub_df)
+  bb[1] <- bb[1]-1000
+  bb[2] <- bb[2]-1000
+  bb[3] <- bb[3]+1000
+  bb[4] <- bb[4]+1000
+  pol <- st_as_sfc(bb)
+  pol <- as_Spatial(pol)
+  rst <- raster::crop(landfire, pol)
+  
+  sub_df <- sub_df[1:10,]
+
+    
     
     sub_df$lf <- raster::extract(landfire, sub_df, buffer = 1000,
                            na.rm = TRUE, fun = function(x,...)getmode(x))
 
-    print(Sys.time()-t0)  
+   
    
     
-    results[[i]] <- sub_df
-  
+   return(sub_df)
 }
+print(Sys.time()-t0)
 
-
+stopCluster(cl)
 
 # current ending point with serialized method ----------------------------------------------
 # 
