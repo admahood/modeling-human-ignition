@@ -23,7 +23,7 @@ for(i in 1:length(states)){
   sub_df <- fpa_s[fpa_s$STATE == states[i],]
   #crop landfire by state (extent of object), then split by cores, then parallelize
   print(as.character(states[i]))
-  sub_df <- sub_df[1:10]
+  sub_df <- sub_df
 
   # cl <- makeCluster(detectCores())
   # registerDoParallel(cl)
