@@ -22,7 +22,7 @@ t0 <- Sys.time()
 corz <- detectCores()-1
 states <- unique(fpa_s$STATE)
 
-cl <- makeCluster(detectCores())
+cl <- makeCluster(corz)
 registerDoParallel(cl)
 
 results <- list()
