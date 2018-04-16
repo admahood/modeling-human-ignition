@@ -10,8 +10,8 @@ fpa_s <- select(fpa, FPA_ID,STATE) %>%
 
 # R does not have a native function for mode?????? -------------------
 getmode <- function(v) {
-  uniqv <- unique(v)
-  uniqv[which.max(tabulate(match(v, uniqv)))]
+  uniqv <- na.omit(unique(v))
+  uniqv[base::which.max(tabulate(match(v, uniqv)))]
 }
 
 # new approach - same as lyb baecv
@@ -23,22 +23,16 @@ for(i in 1:length(states)){
   sub_df <- fpa_s[fpa_s$STATE == states[i],]
   #crop landfire by state (extent of object), then split by cores, then parallelize
   print(as.character(states[i]))
-  sub_df <- sub_df
+  sub_df <- sub_df[1:100,]
 
-  # cl <- makeCluster(detectCores())
-  # registerDoParallel(cl)
-  # 
-  # extract climate time series data based on point or polygon locations.
-  # this extract is pulling in point data, so fun = mean does not matter
-  # extractions <- foreach (i = tifs) %dopar% {
     t0<-Sys.time()
-    # results <- foreach(i = 1:length(l)) %dopar% {
-      
+    
     sub_df$lf <- raster::extract(landfire, sub_df, buffer = 1000,
                            na.rm = TRUE, fun = function(x,...)getmode(x))
-    print(t0-Sys.time())  
-   # }
-  # stopCluster(cl)
+
+    print(Sys.time()-t0)  
+   
+    
     results[[i]] <- sub_df
   
 }
