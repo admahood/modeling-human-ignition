@@ -47,6 +47,7 @@ results <- foreach(i = 1:length(states)) %dopar% {
    
    return(sub_df)
    rm(rst)
+   gc()
 }
 print(Sys.time()-t0)
 
