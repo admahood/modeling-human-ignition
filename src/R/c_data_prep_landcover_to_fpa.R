@@ -5,48 +5,57 @@ landfiredb <- read.dbf("data/raw/landfire_esp/esp.dbf")
 
 fpa <- st_read("data/processed/fpa_ll.gpkg")
 
+fpa_s <- select(fpa, FPA_ID,STATE)
+
 # R does not have a native function for mode?????? -------------------
 getmode <- function(v) {
   uniqv <- unique(v)
   uniqv[which.max(tabulate(match(v, uniqv)))]
 }
 
-# # test runs-----------------
-# fpa_small <- fpa[1:1000,]
-# 
-# t0 <- Sys.time()
-# fpa_small$lf <- raster::extract(landfire, fpa_small, buffer = 1000, fun = function(x,...)getmode(x))
-# print(Sys.time()-t0) # 20 minutes 
-# 
-# t0 <- Sys.time()
-# beginCluster()
-# fpa_small$lf <- raster::extract(landfire, fpa_small, buffer = 1000, fun = function(x,...)getmode(x))
-# endCluster()
-# print(Sys.time()-t0) #
-# fpa_small
-# 
-# # we're doing it for real --------------- but it's going to take 12.5 days so maybe  not
-# beginCluster(detectCores())
-# fpa$landfire <- raster::extract(landfire, fpa, buffer = 1000, fun = function(x,...)getmode(x))
-# endCluster()
-
-
 # new approach - same as lyb baecv
 corz <- detectCores()
-fpa <- st_transform(fpa, crs = crs(landfire, asText=TRUE))
+fpa_s <- st_transform(fpa_s, crs = crs(landfire, asText=TRUE))
+states <- unique(fpa_s$STATE)
 
-if (!exists("sp_grd")){
-  pol <- st_as_sfc(st_bbox(landfire))
-  grd <- st_make_grid(pol,n=c(corz,1))
-  sp_grd <- sf::as_Spatial(grd)
+results <- list()
+for(i in 1:length(states)){
+  sub_df <- fpa_s[fpa_s$STATE == states[i],]
+  #crop landfire by state (extent of object), then split by cores, then parallelize
+  print(as.character(states[i]))
+  sub_df <- sub_df[1:100,]
+  l <- split(sub_df, sample(1:corz, nrow(sub_df), replace=T))
+  
+  cl <- makeCluster(detectCores())
+  registerDoParallel(cl)
+  # 
+  # extract climate time series data based on point or polygon locations.
+  # this extract is pulling in point data, so fun = mean does not matter
+  # extractions <- foreach (i = tifs) %dopar% {
+    t0<-Sys.time()
+    results <- foreach(i = 1:length(l)) %dopar% {
+      
+    raster::extract(landfire, sub_df, buffer = 1000,
+                           na.rm = TRUE, fun = function(x,...)getmode(x), df = TRUE)
+    print(t0-Sys.time())  
+   }
+  stopCluster(cl)
+  
 }
 
-t1 <- Sys.time()
-registerDoParallel(cores=corz)
-splits <- foreach(j=1:length(sp_grd)) %dopar% {raster::crop(landfire, sp_grd[j])}
-print("time for splitting raster")
-print(Sys.time() - t1)
-#rm(landfire)
+# 
+# if (!exists("sp_grd")){
+#   pol <- st_as_sfc(st_bbox(landfire))
+#   grd <- st_make_grid(pol,n=c(corz,1))
+#   sp_grd <- sf::as_Spatial(grd)
+# }
+# 
+# t1 <- Sys.time()
+# registerDoParallel(cores=corz)
+# splits <- foreach(j=1:length(sp_grd)) %dopar% {raster::crop(landfire, sp_grd[j])}
+# print("time for splitting raster")
+# print(Sys.time() - t1)
+# #rm(landfire)
 
 ## also need to split the fpa data
 t1 <- Sys.time()
@@ -71,3 +80,25 @@ spl_rcl <- foreach(k=1:length(splits)) %dopar% {
 print("time for reclassifying")
 print(Sys.time()-t1)
 rm(splits)
+
+
+
+# # test runs-----------------
+# fpa_small <- fpa[1:1000,]
+# 
+# t0 <- Sys.time()
+# fpa_small$lf <- raster::extract(landfire, fpa_small, buffer = 1000, fun = function(x,...)getmode(x))
+# print(Sys.time()-t0) # 20 minutes 
+# 
+# t0 <- Sys.time()
+# beginCluster()
+# fpa_small$lf <- raster::extract(landfire, fpa_small, buffer = 1000, fun = function(x,...)getmode(x))
+# endCluster()
+# print(Sys.time()-t0) #
+# fpa_small
+# 
+# # we're doing it for real --------------- but it's going to take 12.5 days so maybe  not
+# beginCluster(detectCores())
+# fpa$landfire <- raster::extract(landfire, fpa, buffer = 1000, fun = function(x,...)getmode(x))
+# endCluster()
+
