@@ -8,6 +8,8 @@ fpa <- st_read("data/processed/fpa_ll.gpkg")
 fpa_s <- select(fpa, FPA_ID,STATE) %>%
   st_transform(crs = crs(landfire, asText=TRUE))
 
+rm(fpa)
+
 # R does not have a native function for mode?????? -------------------
 getmode <- function(v) {
   uniqv <- na.omit(unique(v))
@@ -17,7 +19,7 @@ getmode <- function(v) {
 # 
 
 t0 <- Sys.time()
-corz <- detectCores()
+corz <- detectCores()-1
 states <- unique(fpa_s$STATE)
 
 cl <- makeCluster(detectCores())
@@ -37,6 +39,8 @@ results <- foreach(i = 1:length(states)) %dopar% {
   pol <- st_as_sfc(bb)
   pol <- as_Spatial(pol)
   rst <- raster::crop(landfire, pol)
+  rm(pol)
+  rm(bb)
   
   #sub_df <- sub_df[1:10,]
 
@@ -47,6 +51,7 @@ results <- foreach(i = 1:length(states)) %dopar% {
    
    return(sub_df)
    rm(rst)
+   rm(sub_df)
    gc()
 }
 print(Sys.time()-t0)
