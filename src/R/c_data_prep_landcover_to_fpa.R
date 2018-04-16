@@ -1,7 +1,7 @@
 # extracting landcover to fpa points -------------------
 
 landfire <- raster("data/raw/landfire_esp/us_140esp1.tif")
-landfiredb <- read.dbf("data/raw/landfire_esp/esp.dbf")
+#landfiredb <- read.dbf("data/raw/landfire_esp/esp.dbf")
 
 fpa <- st_read("data/processed/fpa_ll.gpkg")
 
@@ -24,7 +24,7 @@ cl <- makeCluster(detectCores())
 registerDoParallel(cl)
 
 results <- list()
-results <- foreach(i = 44:length(states)) %dopar% {
+results <- foreach(i = 1:length(states)) %dopar% {
   require(sf)
   require(raster)
   
@@ -38,22 +38,23 @@ results <- foreach(i = 44:length(states)) %dopar% {
   pol <- as_Spatial(pol)
   rst <- raster::crop(landfire, pol)
   
-  sub_df <- sub_df[1:10,]
+  #sub_df <- sub_df[1:10,]
 
     
     
-    sub_df$lf <- raster::extract(landfire, sub_df, buffer = 1000,
+    sub_df$lf <- raster::extract(rst, sub_df, buffer = 1000,
                            na.rm = TRUE, fun = function(x,...)getmode(x))
-
    
-   
-    
    return(sub_df)
+   rm(rst)
 }
 print(Sys.time()-t0)
 
 stopCluster(cl)
 
+df<- do.call("rbind",results)
+st_write(df, "fpa_w_landfire_esp.gpkg")
+system("aws s3 sync fpa_w_landfire_esp.gpkg s3://earthlab-modeling-human-ignitions/processed/")
 # current ending point with serialized method ----------------------------------------------
 # 
 # if (!exists("sp_grd")){
