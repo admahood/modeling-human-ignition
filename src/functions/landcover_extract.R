@@ -3,11 +3,12 @@
 
 # landcover extraction function ---------------------------------------------------
 
-ext_landcover <- function(rst_, pts, buffer = 1000, FUN = 'mode'){
+ext_landcover <- function(rst_, pts, colname, buffer = 1000, FUN = 'mode'){
   require(parallel)
   require(foreach)
   require(raster)
   require(sf)
+  require(dplyr)
   getmode <- function(v) {
     uniqv <- na.omit(unique(v))
     uniqv[base::which.max(tabulate(match(v, uniqv)))]
@@ -63,6 +64,8 @@ ext_landcover <- function(rst_, pts, buffer = 1000, FUN = 'mode'){
   
   t0 <- Sys.time()
   print(t0)
-  df<- do.call("rbind",results)
+  df<- do.call("rbind",results) %>%
+    rename(colname=lf)
+  
   return(df)
 }

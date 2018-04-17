@@ -1,5 +1,6 @@
 # extracting landcover to fpa points 
-# Used a m4.xlarge EC2 instance
+# Used 32 cores and 240 GB ram and it ran in 45 minutes per landcover layer
+# only really needed about 60 or 70 GB ram with 32 cores
 
 source("src/R/a_make_dirs.R")
 source("src/functions/landcover_extract.R")
@@ -12,6 +13,8 @@ dir.create(result_path)
 
 
 # fpa import ---------------------------------------------------------------
+
+system("aws s3 sync s3://earthlab-modeling-human-ignitions/processed modeling-human-ignition/data/processed")
 
 fpa <- st_read("data/processed/fpa_ll.gpkg") %>%
   select(FPA_ID,STATE)
@@ -29,7 +32,8 @@ system(paste("aws s3 sync",
              lf_path))
 
 df <- ext_landcover(rst_ = file.path(lf_path, lf_file),
-                    pts = fpa)
+                    pts = fpa,
+                    colname = "lf_esp")
 
 st_write(df, file.path(result_path
                        , lf_result_file))
@@ -52,11 +56,13 @@ for(y in 1:length(years)){
     
     if(type[t] == 'landcover'){
       df <- ext_landcover(rst_ = file.path(path, file),
-                          pts = fpa)
+                          pts = fpa,
+                          colname = paste("nlcd","lc",year[y], sep = "_"))
     }
     if(type[t] == 'impervious'){
       df <- ext_landcover(rst_ = file.path(path, file),
                           pts = fpa,
+                          colname = paste("nlcd","imp",year[y], sep = "_"),
                           FUN = 'mean')
     }
     
@@ -67,3 +73,50 @@ for(y in 1:length(years)){
     
   }
 }
+
+# merging into one dataframe ---------------------------------------------
+
+source_path <- "data/processed/landcover"
+
+system(paste("aws s3 sync s3://earthlab-modeling-human-ignitions/processed/landcover",
+             source_path))
+
+files <- list.files("data/processed/landcover")
+
+cl <- makeCluster(detectCores()-1)
+registerDoParallel(cl)
+
+fpa_list <- list()
+fpa_list <- foreach(i = 1:length(files)) %dopar% {
+  require(sf)
+  require(dplyr)
+
+  if (i>1){
+    fpa_list[[i]] <- st_read(file.path(source_path,files[i])) %>%
+      select(-FPA_ID, -STATE)
+  } else{    fpa_list[[i]] <- st_read(file.path(source_path,files[i])) 
+}
+}
+stopCluster(cl)
+
+final <- st_join(fpa_list[[1]], fpa_list[[2]]) %>%
+  st_join(., fpa_list[[3]]) %>%
+  st_join(., fpa_list[[4]]) %>%
+  st_join(., fpa_list[[5]]) %>%
+  st_join(., fpa_list[[6]]) %>%
+  st_join(., fpa_list[[7]]) 
+
+# final <- plyr::join_all(fpa_list, by = 'FPA_ID', type = 'left') # didn't work
+st_write(final, "data/results/fpa_w_all_landcover.gpkg")
+
+system(paste("aws s3 cp data/results/fpa_w_all_landcover.gpkg s3://earthlab-modeling-human-ignitions/processed/"))
+
+# fixing names without redoing the whole thing
+# fpa_list[[1]] <- rename(fpa_list[[1]], lf_esp = lf)
+# fpa_list[[2]] <- rename(fpa_list[[2]], nlcd_lc_2001 = lf)
+# fpa_list[[3]] <- rename(fpa_list[[3]], nlcd_lc_2006 = lf)
+# fpa_list[[4]] <- rename(fpa_list[[4]], nlcd_lc_2011 = lf)
+# fpa_list[[5]] <- rename(fpa_list[[5]], nlcd_imp_2001 = lf)
+# fpa_list[[6]] <- rename(fpa_list[[6]], nlcd_imp_2006 = lf)
+# fpa_list[[7]] <- rename(fpa_list[[7]], nlcd_imp_2011 = lf)
+
