@@ -4,46 +4,66 @@
 source("src/R/a_make_dirs.R")
 source("src/functions/landcover_extract.R")
 
+# create scrap folder for results and s3 path
 
-# landfire ------------------------------------------------------------------
-lf_path <- "data/raw/landfire_esp/us_140esp1.tif"
-landfire <- raster(lf_path)
-#landfiredb <- read.dbf("data/raw/landfire_esp/esp.dbf")
+result_path <- "data/results"
+result_s3 <- "s3://earthlab-modeling-human-ignitions/processed/landcover"
+dir.create(result_path)
+
+
+# fpa import ---------------------------------------------------------------
+
+fpa <- st_read("data/processed/fpa_ll.gpkg") %>%
+  select(FPA_ID,STATE)
+
+
+# landfire ----------------------------------------------------------------
+lf_file <- "us_140esp1.tif"
+lf_path <- "data/raw/landfire_esp"
+lf_s3 <- "s3://earthlab-modeling-human-ignitions/raw/landfire_esp"
+lf_result_file <- "fpa_w_landfire_esp.gpkg"
+
 
 system(paste("aws s3 sync",
-               "s3://earthlab-modeling-human-ignitions/raw/nlcd_2011_impervious_2011_edition_2014_10_10",
-               "modeling-human-ignition/data/raw/nlcd_2011_impervious_2011_edition_2014_10_10"))
+             lf_s3,
+             lf_path))
 
-# nlcd
-nlcd_2001_path <-"data/raw/nlcd_2011_impervious_2011_edition_2014_10_10/nlcd_2011_impervious_2011_edition_2014_10_10.img"
-nlcd_2001 <- raster(nlcd_2001_path)
+df <- ext_landcover(rst_ = file.path(lf_path, lf_file),
+                    pts = fpa)
 
-# fpa ----------------------------------------------------------------------------
-t0 <- Sys.time()
-fpa <- st_read("data/processed/fpa_ll.gpkg") %>%
-  select(FPA_ID,STATE) # %>%
- # st_transform(crs = crs(landfire, asText=TRUE))
-print(Sys.time()-t0)
+st_write(df, file.path(result_path
+                       , lf_result_file))
+system(paste("aws s3 cp",
+             file.path(result_path, lf_file),
+             result_s3))
 
-# R does not have a native function for mode?????? --------------------------------
-getmode <- function(v) {
-  uniqv <- na.omit(unique(v))
-  uniqv[base::which.max(tabulate(match(v, uniqv)))]
+# nlcd ----------------------------------------------------------------------
+year <- (c("2001","2006", "2011"))
+type <- (c("impervious","landcover"))
+
+for(y in 1:length(years)){
+  for(t in 1:length(type)){
+    file <- paste0("nlcd_",year[y],"_",type[t],"_2011_edition_2014_10_10.img")
+    path <-paste0("modeling-human-ignition/data/raw/nlcd_",year[y],"_",type[t],"_2011_edition_2014_10_10")
+    s3 <-paste0("s3://earthlab-modeling-human-ignitions/raw/nlcd_",year[y],"_",type[t],"_2011_edition_2014_10_10")
+    result_file <- paste0("fpa_w_nlcd_",type[t],year[y],".gpkg")
+    
+    system(paste("aws s3 sync", s3, path))
+    
+    if(type[t] == 'landcover'){
+      df <- ext_landcover(rst_ = file.path(path, file),
+                          pts = fpa)
+    }
+    if(type[t] == 'impervious'){
+      df <- ext_landcover(rst_ = file.path(path, file),
+                          pts = fpa,
+                          FUN = 'mean')
+    }
+    
+    st_write(df, file.path(result_path,result_file))
+    system(paste("aws s3 cp",
+                 file.path(result_path, result_file),
+                 result_s3))
+    
+  }
 }
-
-
-
-st_write(df, "fpa_w_nlcd_imp_2011.gpkg")
-system("aws s3 cp /home/rstudio/modeling-human-ignition/fpa_w_nlcd_imp_2011.gpkg s3://earthlab-modeling-human-ignitions/processed/")
-print(Sys.time()-t0)
-
-# st_write(df, "fpa_w_landfire_esp.gpkg")
-# system("aws s3 cp /home/rstudio/modeling-human-ignition/fpa_w_landfire_esp.gpkg s3://earthlab-modeling-human-ignitions/processed/")
-
-# FORE-SCE extraction -----------------------------------------------------------------------
-zip <- "data/CONUS_Landcover_A1B.zip"
-exdir <- "data/raw/landcover/"
-
-unzip(zipfile=zip, exdir=exdir) # file corrupted
-
-
