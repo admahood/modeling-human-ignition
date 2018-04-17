@@ -1,8 +1,20 @@
-# extracting landcover to fpa points -------------------
+# extracting landcover to fpa points 
+# Used a m4.xlarge EC2 instance
+
+# landfire ------------------------------------------------------------------
 
 landfire <- raster("data/raw/landfire_esp/us_140esp1.tif")
 #landfiredb <- read.dbf("data/raw/landfire_esp/esp.dbf")
 
+system(paste("aws s3 sync",
+               "s3://earthlab-modeling-human-ignitions/raw/nlcd_2011_impervious_2011_edition_2014_10_10",
+               "modeling-human-ignition/data/raw/nlcd_2011_impervious_2011_edition_2014_10_10"))
+
+# nlcd
+nlcd_2001_path <-"data/raw/nlcd_2011_impervious_2011_edition_2014_10_10/nlcd_2011_impervious_2011_edition_2014_10_10.img"
+nlcd_2001 <- raster(nlcd_2001_path)
+
+# fpa ----------------------------------------------------------------------------
 fpa <- st_read("data/processed/fpa_ll.gpkg")
 
 fpa_s <- select(fpa, FPA_ID,STATE) %>%
@@ -10,13 +22,13 @@ fpa_s <- select(fpa, FPA_ID,STATE) %>%
 
 rm(fpa)
 
-# R does not have a native function for mode?????? -------------------
+# R does not have a native function for mode?????? --------------------------------
 getmode <- function(v) {
   uniqv <- na.omit(unique(v))
   uniqv[base::which.max(tabulate(match(v, uniqv)))]
 }
 
-# 
+# landfire extraction -----------------------------------------------------------------------
 
 t0 <- Sys.time()
 corz <- detectCores()-1
@@ -38,7 +50,7 @@ results <- foreach(i = 1:length(states)) %dopar% {
   bb[4] <- bb[4]+1000
   pol <- st_as_sfc(bb)
   pol <- as_Spatial(pol)
-  rst <- raster::crop(landfire, pol)
+  rst <- raster::crop(nlcd_2001, pol)
   rm(pol)
   rm(bb)
   
@@ -46,9 +58,12 @@ results <- foreach(i = 1:length(states)) %dopar% {
 
     
     
-    sub_df$lf <- raster::extract(rst, sub_df, buffer = 1000,
-                           na.rm = TRUE, fun = function(x,...)getmode(x))
-   
+    # sub_df$lf <- raster::extract(rst, sub_df, buffer = 1000,
+    #                        na.rm = TRUE, fun = function(x,...)getmode(x))
+  sub_df$lf <- raster::extract(rst, sub_df, buffer = 1000,
+                               na.rm = TRUE, fun = mean) 
+  
+  
    return(sub_df)
    rm(rst)
    rm(sub_df)
@@ -58,66 +73,20 @@ print(Sys.time()-t0)
 
 stopCluster(cl)
 
+t0 <- Sys.time()
+print(t0)
 df<- do.call("rbind",results)
-st_write(df, "fpa_w_landfire_esp.gpkg")
-system("aws s3 sync fpa_w_landfire_esp.gpkg s3://earthlab-modeling-human-ignitions/processed/")
-# current ending point with serialized method ----------------------------------------------
-# 
-# if (!exists("sp_grd")){
-#   pol <- st_as_sfc(st_bbox(landfire))
-#   grd <- st_make_grid(pol,n=c(corz,1))
-#   sp_grd <- sf::as_Spatial(grd)
-# }
-# 
-# t1 <- Sys.time()
-# registerDoParallel(cores=corz)
-# splits <- foreach(j=1:length(sp_grd)) %dopar% {raster::crop(landfire, sp_grd[j])}
-# print("time for splitting raster")
-# print(Sys.time() - t1)
-# #rm(landfire)
+st_write(df, "fpa_w_nlcd_imp_2011.gpkg")
+system("aws s3 cp /home/rstudio/modeling-human-ignition/fpa_w_nlcd_imp_2011.gpkg s3://earthlab-modeling-human-ignitions/processed/")
+print(Sys.time()-t0)
 
-## also need to split the fpa data
-t1 <- Sys.time()
-registerDoParallel(cores=corz)
-pnts <- foreach(j=1:length(sp_grd)) %dopar% {st_intersection(fpa, grd[j])} # gotta use the sf grid
-print("time for splitting fpa")
-print(Sys.time() - t1)
+# st_write(df, "fpa_w_landfire_esp.gpkg")
+# system("aws s3 cp /home/rstudio/modeling-human-ignition/fpa_w_landfire_esp.gpkg s3://earthlab-modeling-human-ignitions/processed/")
 
+# FORE-SCE extraction -----------------------------------------------------------------------
+zip <- "data/CONUS_Landcover_A1B.zip"
+exdir <- "data/raw/landcover/"
 
-spl_rcl <- list() #possibly unnecesary
-t1 <- Sys.time()
-registerDoParallel(cores=corz)
-print(paste("reclassifying"))
+unzip(zipfile=zip, exdir=exdir) # file corrupted
 
-spl_rcl <- foreach(k=1:length(splits)) %dopar% {
-  # making a filename based on location
-  #xmin <- (substr(as.character(sp_grd[k]@bbox[[1]]),1,4))
-  #filename <- paste0("scrap/rcl", year,"_", xmin, ".tif")
-  # applying the function
-  spl_rcl[[k]] <- raster::extract(splits[[k]], pnts[[k]], buffer=1000, fun = function(x,...)getmode(x))
-}
-print("time for reclassifying")
-print(Sys.time()-t1)
-rm(splits)
-
-
-
-# # test runs-----------------
-# fpa_small <- fpa[1:1000,]
-# 
-# t0 <- Sys.time()
-# fpa_small$lf <- raster::extract(landfire, fpa_small, buffer = 1000, fun = function(x,...)getmode(x))
-# print(Sys.time()-t0) # 20 minutes 
-# 
-# t0 <- Sys.time()
-# beginCluster()
-# fpa_small$lf <- raster::extract(landfire, fpa_small, buffer = 1000, fun = function(x,...)getmode(x))
-# endCluster()
-# print(Sys.time()-t0) #
-# fpa_small
-# 
-# # we're doing it for real --------------- but it's going to take 12.5 days so maybe  not
-# beginCluster(detectCores())
-# fpa$landfire <- raster::extract(landfire, fpa, buffer = 1000, fun = function(x,...)getmode(x))
-# endCluster()
 
