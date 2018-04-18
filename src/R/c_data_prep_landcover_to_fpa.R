@@ -93,18 +93,20 @@ fpa_list <- foreach(i = 1:length(files)) %dopar% {
 
   if (i>1){
     fpa_list[[i]] <- st_read(file.path(source_path,files[i])) %>%
-      select(-FPA_ID, -STATE)
-  } else{    fpa_list[[i]] <- st_read(file.path(source_path,files[i])) 
+      select(-STATE) %>% st_set_geometry(NULL)
+  } else{fpa_list[[i]] <- st_read(file.path(source_path,files[i])) 
 }
 }
 stopCluster(cl)
+# final <- bind_cols(fpa_list)
 
-final <- st_join(fpa_list[[1]], fpa_list[[2]]) %>%
-  st_join(., fpa_list[[3]]) %>%
-  st_join(., fpa_list[[4]]) %>%
-  st_join(., fpa_list[[5]]) %>%
-  st_join(., fpa_list[[6]]) %>%
-  st_join(., fpa_list[[7]]) 
+final <- left_join(fpa_list[[1]], fpa_list[[2]]) %>%
+  left_join(fpa_list[[3]]) %>%
+  left_join(fpa_list[[4]]) %>%
+  left_join(fpa_list[[5]]) %>%
+  left_join(fpa_list[[6]]) %>%
+  left_join(fpa_list[[7]])
+
 
 # final <- plyr::join_all(fpa_list, by = 'FPA_ID', type = 'left') # didn't work
 st_write(final, "data/results/fpa_w_all_landcover.gpkg")
