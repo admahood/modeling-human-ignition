@@ -1,6 +1,6 @@
 
 # load all ibraries
-x <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest", 'parallel', 'doParallel',
+x <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest", 'parallel', 'doParallel', 'lwgeom',
        'parallel', 'foreach', "httr", "purrr", "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall")
 lapply(x, library, character.only = TRUE, verbose = FALSE)
 
