@@ -51,7 +51,7 @@ load_data <- function(url, dir, layer, outname) {
     unzip(paste0(dir, ".zip"),
           exdir = dir)
     unlink(paste0(dir, ".zip"))
-    
+
   }
   name <- paste0(outname, "_shp")
   name <- sf::st_read(dsn = dir, layer = layer)
@@ -295,16 +295,16 @@ get_lags <- function(extract_to, extract_from, start_date, time_lag) {
 impute_density <- function(df) {
   # Interpolate for each month and year from 1992 - 2015
   # using a simple linear sequence given decadal values
-  
+
   require(tidyverse)
   require(magrittr)
-  
+
   year_seq <- min(df$year):max(df$year)
   predict_seq <- seq(min(df$year),
                      max(df$year),
                      length.out = (length(year_seq) - 1) * 12)
-  preds <- spline(x = df$year,
-                  y = df$value,
+  preds <- spline(x = as.numeric(df$year),
+                  y = as.numeric(df$value),
                   xout = predict_seq)
   res <- as_tibble(preds) %>%
     rename(t = x, value = y) %>%
@@ -358,18 +358,18 @@ impute_in_parallel <- function(data, x) {
 }
 
 impute_in_parallel_ciesin <- function(data, x) {
-  
+
   sub_data <- subset(data, data$FPA_ID == x)
-  
-  extraction_df <- sub_data %>%
+
+    extraction_df <- sub_data %>%
     dplyr::select(-year_month_day) %>%
     do(impute_density(.))
-  
+
   # reduce the size of the dataframe to be joined during the get_climate_lags
   sub_df <- sub_data %>%
     dplyr::select(FPA_ID, year_month_day) %>%
     mutate(year_month_day = as.Date(year_month_day, origin="1970-01-01"))
-  
+
   fpa_out <-
     get_lags(
       extract_to = sub_df,
@@ -378,7 +378,7 @@ impute_in_parallel_ciesin <- function(data, x) {
       time_lag = 0
     ) %>%
     dplyr::select(-year_month_day)
-  
+
   fpa_out
 }
 

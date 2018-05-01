@@ -113,29 +113,24 @@ extraction_vars <- extraction_df %>%
 # Impute census variables -------------------------------------------------
 # Housing units
 if (!file.exists(file.path(anthro_extract, "housing_units_extraction.rds"))) {
-  hu_list <- extraction_vars %>%
-    filter(variable == 'housing_units') %>%
-    split(., .$STATE)
 
-  sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfSource('src/functions/helper_functions.R')
+  hu <- extraction_vars %>%
+    filter(variable == 'housing_units')
 
-  hu_summaries <- sfLapply(hu_list, function (input_tibble) {
+  cl <- makeCluster(detectCores())
+  registerDoParallel(cl)
+
+  hu_summaries <- foreach (i = unique(hu$FPA_ID), .combine = rbind) %dopar% {
     require(tidyverse)
-    require(magrittr)
-    require(lubridate)
+    require(sf)
 
-    sub_tib <- bind_cols(input_tibble) %>%
-      as_tibble
-    unique_ids <- unique(sub_tib$FPA_ID)
-
-    lapply(unique_ids,
-           FUN = impute_in_parallel_ciesin,
-           data = sub_tib)
+    hu_summaries <- impute_in_parallel_ciesin(data = hu, x = i) %>%
+      distinct(FPA_ID, .keep_all = TRUE)
+    hu_summaries
   }
-  )
 
-  sfStop()
+  stopCluster(cl)
+
 
   hu_df <- flattenlist(hu_summaries) %>%
     bind_rows() %>%
