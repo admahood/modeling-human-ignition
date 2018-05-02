@@ -115,22 +115,37 @@ extraction_vars <- extraction_df %>%
 if (!file.exists(file.path(anthro_extract, "housing_units_extraction.rds"))) {
 
   hu <- extraction_vars %>%
-    filter(variable == 'housing_units')
+    filter(variable == 'housing_units') %>%
+    droplevels() %>%
+    split(.$STATE)
 
-  cl <- makeCluster(detectCores())
-  registerDoParallel(cl)
+  sfInit(parallel = TRUE, cpus = parallel::detectCores())
+  sfSource('src/functions/helper_functions.R')
 
-  hu_summaries <- foreach (i = unique(hu$FPA_ID), .combine = rbind) %dopar% {
-    require(tidyverse)
-    require(sf)
+  hu_summaries <- sfLapply(hu,
+                         function (input_list) {
+                           require(tidyverse)
+                           require(magrittr)
+                           require(lubridate)
+                           require(lubridate)
+                           require(sf)
 
-    hu_summaries <- impute_in_parallel_ciesin(data = hu, x = i) %>%
-      distinct(FPA_ID, .keep_all = TRUE)
-    hu_summaries
-  }
+                           sub_grid <- dplyr:::bind_cols(input_list)
+                           unique_ids <- unique(sub_grid$FPA_ID)
+                           state_name <- unique(sub_grid$STATE)[1]
 
-  stopCluster(cl)
+                           print(paste0('Working on ', state_name))
 
+                           got_density <- lapply(unique_ids,
+                                                 FUN = impute_in_parallel_ciesin,
+                                                 data = sub_grid)
+                           print(paste0('Finishing ', state_name))
+
+                           return(got_density)
+                         }
+  )
+
+  sfStop()
 
   hu_df <- flattenlist(hu_summaries) %>%
     bind_rows() %>%

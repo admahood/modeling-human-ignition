@@ -357,9 +357,9 @@ impute_in_parallel <- function(data, x) {
   fpa_out
 }
 
-impute_in_parallel_ciesin <- function(data, x) {
+impute_in_parallel_ciesin <- function(data, ids) {
 
-  sub_data <- subset(data, data$FPA_ID == x)
+  sub_data <- subset(data, data$FPA_ID == ids)
 
     extraction_df <- sub_data %>%
     dplyr::select(-year_month_day) %>%
@@ -377,7 +377,8 @@ impute_in_parallel_ciesin <- function(data, x) {
       start_date = sub_df$year_month_day,
       time_lag = 0
     ) %>%
-    dplyr::select(-year_month_day)
+    dplyr::select(-year_month_day) %>%
+    distinct(FPA_ID, .keep_all = TRUE)
 
   fpa_out
 }
