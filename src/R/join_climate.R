@@ -28,5 +28,6 @@ for(i in 1:length(climate_files)){
   all <- left_join(all,y=x, by = "FPA_ID")
 }
 
-
+write_rds(all, "data/extractions/fpa_w_climate_landcover.rds")
+system("aws s3 cp data/extractions/fpa_w_climate_landcover.rds s3://earthlab-modeling-human-ignitions/processed/fpa_w_climate_landcover.rds")
 
