@@ -101,6 +101,7 @@ decompress_file <- function(file, exdir, .file_cache = FALSE) {
 # functions for 4_fpa_climate_summaries.R -------------------------------
 
 extract_one <- function(filename, shapefile_extractor) {
+
   # function to extract all climate time series based on shapefile input
   # this results in large list of all months/years within the raster climate data
   # each list is written out to a csv so this only needs to be run once.
@@ -113,6 +114,7 @@ extract_one <- function(filename, shapefile_extractor) {
     res <- raster::extract(raster::stack(filename), shapefile_extractor,
                            na.rm = TRUE, fun = 'mean', df = TRUE)
     write.csv(res, file = out_name)
+
   } else {
     res <- read.csv(out_name)
   }
