@@ -3,9 +3,11 @@ Icon
 .Rhistory
 .Rapp.history
 .DS_Store
+.bash_history
 
 # Session Data files
 .RData
+.aws
 
 # Example code in package build process
 *-Ex.R

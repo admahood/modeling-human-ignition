@@ -1,7 +1,7 @@
 # Load and process FPA-FOD wildfire iginition data
 if (!exists("fpa_clean")) {
   if (file.exists(file.path(processed_dir, "fpa_clean.gpkg"))){
-    
+  
     fpa_clean <- st_read(file.path(processed_dir, "fpa_clean.gpkg"))
 
     } else {

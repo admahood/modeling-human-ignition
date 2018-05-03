@@ -1,14 +1,11 @@
 
 # load all ibraries
-x <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest", 'parallel', 'doParallel',
+x <- c("raster", "ncdf4", "tidyverse", "sf", "rasterVis", "gridExtra", "data.table", "assertthat", "rvest", 'parallel', 'doParallel', 'lwgeom',
        'parallel', 'foreach', "httr", "purrr", "rgdal", "maptools", "foreign", "purrr", "zoo", "lubridate", "magrittr", "snowfall")
 lapply(x, library, character.only = TRUE, verbose = FALSE)
 
 # load all functions
 source('src/functions/helper_functions.R')
-source("src/functions/download-data.R")
-source('src/functions/st_par.R')
-source("src/functions/decompress_function.R")
 
 # key rojections
 p4string_ed <- "+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=33 +lat_2=45 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"   #http://spatialreference.org/ref/esri/102005/
@@ -27,6 +24,7 @@ processed_dir <- file.path(prefix, 'processed')
 raw_prefix <- file.path(prefix, "raw")
 us_prefix <- file.path(raw_prefix, "cb_2016_us_state_20m")
 ecoregion_prefix <- file.path(raw_prefix, "us_eco_l3")
+ecoregionl4_prefix <- file.path(raw_prefix, "us_eco_l4")
 fpa_prefix <- file.path(raw_prefix, "fpa-fod")
 roads_prefix <- file.path(raw_prefix, "tlgdb_2015_a_us_roads")
 rails_prefix <- file.path(raw_prefix, "tlgdb_2015_a_us_rails")
@@ -50,12 +48,15 @@ anthro_proc_dir <- file.path(processed_dir, 'anthro')
 transportation_dir <- file.path(processed_dir, 'transportation')
 transportation_density_dir <- file.path(transportation_dir, 'density')
 transportation_processed_dir <- file.path(transportation_dir, 'processed')
+per_state <- file.path(transportation_density_dir, "per_state")
 
 # create direcotires to hold climate summary outputs
-summaries_dir <- file.path(summary_dir, "climate_summaries")
+summaries_dir <- file.path(summary_dir, "climate_extractions")
 summary_mean <- file.path(summaries_dir, "mean")
 summary_95th <- file.path(summaries_dir, "95th")
 summary_numdays95th <- file.path(summaries_dir, "numdays95th")
+terrain_extract <- file.path(summary_dir, "terrain_extractions")
+anthro_extract <- file.path(summary_dir, "anthro_extractions")
 
 anthro_dir <- file.path(prefix, "anthro")
 fishnet_path <- file.path(ancillary_dir, "fishnet")
@@ -65,7 +66,7 @@ s3_anc_prefix <- 's3://earthlab-modeling-human-ignitions/ancillary/'
 s3_proc_prefix <- 's3://earthlab-modeling-human-ignitions/processed/'
 s3_raw_prefix <- 's3://earthlab-modeling-human-ignitions/raw/'
 s3_proc_extractions <- 's3://earthlab-modeling-human-ignitions/extractions/'
-
+s3_proc_climate <- 's3://earthlab-modeling-human-ignitions/climate/'
 
 # Check if directory exists for all variable aggregate outputs, if not then create
 var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix, summary_dir,
@@ -74,5 +75,7 @@ var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, roads_prefix, s
                 tl_prefix, ancillary_dir, anthro_dir, fishnet_path, processed_dir, summaries_dir,
                 nlcd_pdi_01_prefix, nlcd_pdi_06_prefix, nlcd_pdi_11_prefix, summary_mean,
                 summary_95th, summary_numdays95th, terrain_dir, transportation_dir, anthro_proc_dir,
-                transportation_density_dir, transportation_processed_dir, anthro_dir)
+                transportation_density_dir, transportation_processed_dir, anthro_dir,
+                terrain_extract, anthro_extract, per_state,ecoregionl4_prefix)
+
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))
