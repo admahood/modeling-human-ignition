@@ -35,6 +35,7 @@ stat <- c('numdays95th', '95th')
 vars <- c('aet', 'def', 'ffwi', 'fm100', 'pdsi', 'pr', 'tmmx', 'vpd', 'vs')
 
 unique_states <- unique(fpa_ll$STATE)
+
 sub_fpa <- fpa_ll %>%
   select(FPA_ID, STATE, year_month_day)
 
@@ -90,16 +91,30 @@ for (j in stat){
 
         # subset the fpa-fod data based on state grouping variable
         # this increases the speed of this function and only needs ~40GB of memory max.
-        cl <- makeCluster(6)
+        cl <- makeCluster(8)
         registerDoParallel(cl)
 
-        fpa_summaries <- foreach (k = 1:length(unique_states), .combine = rbind) %dopar% {
-          foreach(j = 1:length(unique(fpa_ll$FPA_ID)), .combine='c') %do% {
+        fpa_summaries <- foreach (k = 1:length(unique_states), .combine = rbind, .packages="foreach") %dopar% {
+        #fpa_summaries <- for (k in 1:length(unique_states)) {
+          require(tidyverse)
+
+          sub_extract <- extraction_df %>%
+            filter(STATE == unique_states[k])
+
+          sub_extract$STATE <- droplevels(sub_extract$STATE)
+
+          unique_fpa_id <- unique(sub_extract$FPA_ID)
+
+          foreach(m = 1:length(unique_fpa_id), .combine='c') %do% {
+          #for (j in 1:length(unique_fpa_id)) {
             require(tidyverse)
 
             # create a subdataframe based on state subset
-            sub_extraction_df <- extraction_df %>%
-              filter(STATE == unique_states[k]) %>%
+            sub_extraction_df <- sub_extract %>%
+              filter(FPA_ID == unique_fpa_id[m])
+            sub_extraction_df$FPA_ID <- droplevels(sub_extraction_df$FPA_ID)
+
+            sub_extraction_df <- sub_extraction_df %>%
               dplyr::select(-geom, -year_month_day, -ID, -STATE) %>%
               gather(variable, value, -FPA_ID) %>%
               mutate(FPA_ID = as.factor(FPA_ID)) %>%
@@ -114,6 +129,7 @@ for (j in stat){
 
             fpa_summaries
           }
+          fpa_summaries
         }
         stopCluster(cl)
 
