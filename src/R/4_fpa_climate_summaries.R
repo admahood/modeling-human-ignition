@@ -90,43 +90,41 @@ for (j in stat){
 
         # subset the fpa-fod data based on state grouping variable
         # this increases the speed of this function and only needs ~40GB of memory max.
-        fpa_summaries <- foreach (k = unique_states, .combine = rbind) %dopar% {
+        cl <- makeCluster(6)
+        registerDoParallel(cl)
 
-          # create a subdataframe based on state subset
-          sub_extraction_df <- extraction_df %>%
-            filter(STATE == k) %>%
-            dplyr::select(-geom, -year_month_day, -ID) %>%
-            gather(variable, value, -FPA_ID) %>%
-            mutate(value = if_else(is.na(value), 0, value),
-                   FPA_ID = as.factor(FPA_ID)) %>%
-            # clean the final, long climate data frame with linked fpa ids
-            separate(variable,
-                     into = c("variable", 'year', "statistic", "month"),
-                     sep = "_|\\.") %>%
-            mutate(day = '01',
-                   year_month_day = as.Date(paste(year, month, day, sep='-')))
+        fpa_summaries <- foreach (k = 1:length(unique_states), .combine = rbind) %dopar% {
+          foreach(j = 1:length(unique(fpa_ll$FPA_ID)), .combine='c') %do% {
+            require(tidyverse)
 
-          # run get_climate_lags for the prior 24 months given a fpa-fod fire event
-          # this will iteratively populate a list given each state grouping variable
-          fpa_summaries <- get_lags(sub_fpa, sub_extraction_df, sub_fpa$year_month_day, time_lag = 24) %>%
-            dplyr::select(-year_month_day)
+            # create a subdataframe based on state subset
+            sub_extraction_df <- extraction_df %>%
+              filter(STATE == unique_states[k]) %>%
+              dplyr::select(-geom, -year_month_day, -ID, -STATE) %>%
+              gather(variable, value, -FPA_ID) %>%
+              mutate(FPA_ID = as.factor(FPA_ID)) %>%
+              separate(variable,
+                       into = c("variable", 'year', "statistic", "month"),
+                       sep = "_|\\.") %>%
+              mutate(day = '01',
+                     year_month_day = as.Date(paste(year, month, day, sep='-')))
 
-          fpa_summaries
+            fpa_summaries <- get_lags(sub_fpa, sub_extraction_df, sub_fpa$year_month_day, time_lag = 24) %>%
+              dplyr::select(-year_month_day)
+
+            fpa_summaries
+          }
         }
+        stopCluster(cl)
 
-        if (length(fpa_summaries) > 0) {
-          # rbinds the iteratively populated list and creates a cohesive dataframe
-          fpa_summaries <- do.call(rbind, fpa_summaries) # Convert to data frame format
+        # save the final cleaned climate extractions joined with the fpa-fod database
+        summary_name <- file.path(summaries_dir, j, paste0('fpa_', i, '_', j, '_summaries.rds'))
+        write_rds(fpa_summaries, summary_name)
 
-          # save the final cleaned climate extractions joined with the fpa-fod database
-          summary_name <- file.path(summaries_dir, j, paste0('fpa_', i, '_', j, '_summaries.rds'))
-          write_rds(fpa_summaries, summary_name)
+        # push to S3
+        system('aws s3 sync data/extractions s3://earthlab-modeling-human-ignitions/extractions')
 
-          # push to S3
-          system('aws s3 sync data/extractions s3://earthlab-modeling-human-ignitions/extractions')
-        }
       }
     }
   }
 }
-  
