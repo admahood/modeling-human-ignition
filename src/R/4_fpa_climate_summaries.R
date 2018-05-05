@@ -87,25 +87,28 @@ for (j in stat){
 
         extraction_df <- read_rds(file.path(climate_prefix, j, paste0('fpa_', i, '_', j, '_extraction.rds')))
 
+        extraction_mini <- extraction_df %>%
+          slice(1:10)
         print(paste0('Creating extraction tibble for ', j, ' ', i))
 
         # subset the fpa-fod data based on state grouping variable
         # this increases the speed of this function and only needs ~40GB of memory max.
-        cl <- makeCluster(8)
-        registerDoParallel(cl)
 
-        fpa_summaries <- foreach (k = 1:length(unique_states), .combine = rbind, .packages="foreach") %dopar% {
+        fpa_summaries <- for (k in 1:length(unique_states)) {
         #fpa_summaries <- for (k in 1:length(unique_states)) {
           require(tidyverse)
 
-          sub_extract <- extraction_df %>%
+          sub_extract <- extraction_mini %>%
             filter(STATE == unique_states[k])
 
           sub_extract$STATE <- droplevels(sub_extract$STATE)
 
           unique_fpa_id <- unique(sub_extract$FPA_ID)
 
-          foreach(m = 1:length(unique_fpa_id), .combine='c') %do% {
+          cl <- makeCluster(12)
+          registerDoParallel(cl)
+
+          fpa_summaries <-foreach(m = 1:length(unique_fpa_id), .combine = 'rbind') %dopar% {
           #for (j in 1:length(unique_fpa_id)) {
             require(tidyverse)
 
@@ -129,9 +132,10 @@ for (j in stat){
 
             fpa_summaries
           }
-          fpa_summaries
+          stopCluster(cl)
+
+          fpa_summaries <- do.call(rbind, fpa_summaries) # Convert to data frame format
         }
-        stopCluster(cl)
 
         # save the final cleaned climate extractions joined with the fpa-fod database
         summary_name <- file.path(summaries_dir, j, paste0('fpa_', i, '_', j, '_summaries.rds'))

@@ -111,13 +111,69 @@ extraction_vars <- extraction_df %>%
   dplyr::ungroup()
 
 # Impute census variables -------------------------------------------------
+
+ciesin_var <- unique(extraction_vars$variable)
+
+# subset the fpa-fod data based on state grouping variable
+# this increases the speed of this function and only needs ~40GB of memory max.
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+
+fpa_summaries <- foreach (k = 1:length(ciesin_var), .combine = rbind, .packages="foreach") %dopar% {
+  #fpa_summaries <- for (k in 1:length(unique_states)) {
+  require(tidyverse)
+
+  sub_extract <- extraction_vars %>%
+    filter(variable == ciesin_var[k])
+
+  sub_extract$variable <- droplevels(sub_extract$variable)
+
+  unique_fpa_id <- unique(sub_extract$FPA_ID)
+
+  foreach(m = 1:length(unique_fpa_id), .combine='c') %do% {
+    #for (j in 1:length(unique_fpa_id)) {
+    require(tidyverse)
+
+    # create a subdataframe based on state subset
+    sub_extraction_df <- sub_extract %>%
+      filter(FPA_ID == unique_fpa_id[m])
+    sub_extraction_df$FPA_ID <- droplevels(sub_extraction_df$FPA_ID)
+
+    sub_extraction_df <- sub_extraction_df %>%
+      dplyr::select(-geom, -year_month_day, -ID, -STATE) %>%
+      gather(variable, value, -FPA_ID) %>%
+      mutate(FPA_ID = as.factor(FPA_ID)) %>%
+      separate(variable,
+               into = c("variable", 'year', "statistic", "month"),
+               sep = "_|\\.") %>%
+      mutate(day = '01',
+             year_month_day = as.Date(paste(year, month, day, sep='-')))
+
+    fpa_summaries <- get_lags(sub_fpa, sub_extraction_df, sub_fpa$year_month_day, time_lag = 1) %>%
+      dplyr::select(-year_month_day)
+
+    fpa_summaries
+  }
+  fpa_summaries
+}
+stopCluster(cl)
+
+  # save the final cleaned climate extractions joined with the fpa-fod database
+  summary_name <- file.path(summaries_dir, j, paste0('fpa_', i, '_', j, '_summaries.rds'))
+  write_rds(fpa_summaries, summary_name)
+
+  # push to S3
+  system('aws s3 sync data/extractions s3://earthlab-modeling-human-ignitions/extractions')
+
+}
+
+
 # Housing units
 if (!file.exists(file.path(anthro_extract, "housing_units_extraction.rds"))) {
 
   hu <- extraction_vars %>%
     filter(variable == 'housing_units') %>%
-    droplevels() %>%
-    split(.$STATE)
+    droplevels()
 
   sfInit(parallel = TRUE, cpus = parallel::detectCores())
   sfSource('src/functions/helper_functions.R')
