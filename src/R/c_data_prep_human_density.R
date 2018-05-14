@@ -111,339 +111,71 @@ extraction_vars <- extraction_df %>%
   dplyr::ungroup()
 
 # Impute census variables -------------------------------------------------
-# Housing units
-if (!file.exists(file.path(anthro_extract, "housing_units_extraction.rds"))) {
+slim <- extraction_vars %>%
+  slice(1:12)
+ciesin_var <- unique(extraction_vars$variable)
 
-  hu <- extraction_vars %>%
-    filter(variable == 'housing_units') %>%
-    droplevels() %>%
-    split(.$STATE)
+for (k in ciesin_var) {
 
-  sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfSource('src/functions/helper_functions.R')
+  sub_var <- extraction_vars %>%
+    filter(variable == k)
 
-  hu_summaries <- sfLapply(hu,
-                         function (input_list) {
-                           require(tidyverse)
-                           require(magrittr)
-                           require(lubridate)
-                           require(lubridate)
-                           require(sf)
+  sub_var$variable <- droplevels(sub_var$variable)
 
-                           sub_grid <- dplyr:::bind_cols(input_list)
-                           unique_ids <- unique(sub_grid$FPA_ID)
-                           state_name <- unique(sub_grid$STATE)[1]
+  fpa_summaries_full <- list()
 
-                           print(paste0('Working on ', state_name))
+  for (j in state) {
 
-                           got_density <- lapply(unique_ids,
-                                                 FUN = impute_in_parallel_ciesin,
-                                                 data = sub_grid)
-                           print(paste0('Finishing ', state_name))
+    state_df <- subset(sub_var, decade_df$STATE == j)
+    state_df$STATE <- droplevels(state_df$STATE)
 
-                           return(got_density)
-                         }
-  )
+    unique_ids <- unique(state_df$FPA_ID)
 
-  sfStop()
+    total_ids <- length(unique_ids)
 
-  hu_df <- flattenlist(hu_summaries) %>%
-    bind_rows() %>%
-    distinct(.keep_all = TRUE) %>%
-    mutate(housing_units = housing_units_lag_0,
-           housing_units = if_else(housing_units < 0, 0, housing_units)) %>%
-    dplyr::select(housing_units)
+    distance_to_fire <- list()
+    print(paste0('Working on ', k))
 
-  hu_df %>%
-    write_rds(., file.path(anthro_extract, "housing_units_extraction.rds"))
+    pb <- txtProgressBar(min = 0, max = total_ids, style = 3)
 
-  system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
-  rm(list = c('hu_summaries', 'hu_list', 'hu_df'))
-}
+    for (h in 1:length(unique_ids)) {
 
-# Seasonal housing units
-if (!file.exists(file.path(anthro_extract, "seasonal_housing_units_extraction.rds"))) {
-  shu_list <- extraction_vars %>%
-    filter(variable == 'vacant_housing_units') %>%
-    split(., .$STATE)
+      # create a subdataframe based on state subset
+      sub_extraction_df <- subset(sub_extract, sub_extract$FPA_ID == unique_ids[h])
 
-  sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfSource('src/functions/helper_functions.R')
+      sub_extraction_df$FPA_ID <- droplevels(sub_extraction_df$FPA_ID)
 
-  shu_summaries <- sfLapply(shu_list, function (input_tibble) {
-    require(tidyverse)
-    require(magrittr)
-    require(lubridate)
+      sub_extraction_df <- sub_extraction_df %>%
+        dplyr::select(-geom, -year_month_day, -ID, -STATE) %>%
+        gather(variable, value, -FPA_ID) %>%
+        mutate(FPA_ID = as.factor(FPA_ID)) %>%
+        separate(variable,
+                 into = c("variable", 'year', "statistic", "month"),
+                 sep = "_|\\.") %>%
+        mutate(day = '01',
+               year_month_day = as.Date(paste(year, month, day, sep='-')))
 
-    sub_tib <- bind_cols(input_tibble) %>%
-      as_tibble
-    unique_ids <- unique(sub_tib$FPA_ID)
+      fpa_summaries[[h]] <- get_lags(sub_fpa, sub_extraction_df, sub_fpa$year_month_day, time_lag = 1) %>%
+        dplyr::select(-year_month_day)
 
-    lapply(unique_ids,
-           FUN = impute_in_parallel_ciesin,
-           data = sub_tib)
+      setTxtProgressBar(pb, h)
+
+    }
+    close(pb)
+    fpa_summaries_full[[j]] <- do.call(rbind, fpa_summaries)
+    fpa_summaries_statedf <- do.call(rbind, fpa_summaries)
+
+    write_rds(fpa_summaries_statedf, file.path(anthro_state_extract, paste0('distance_fpa_', k, '_', j, '.rds')))
+    # system('aws s3 sync data/extractions s3://earthlab-modeling-human-ignitions/extractions')
+
   }
-  )
 
-  sfStop()
+  fpa_summaries_full <- do.call(rbind, fpa_summaries_full) # Convert to data frame format
 
-  shu_df <- flattenlist(shu_summaries) %>%
-    bind_rows() %>%
-    distinct(.keep_all = TRUE) %>%
-    mutate(seasonal_housing_units = seasonal_housing_units_lag_0,
-           seasonal_housing_units = if_else(seasonal_housing_units < 0, 0, seasonal_housing_units)) %>%
-    dplyr::select(seasonal_housing_units)
+  # save the final cleaned climate extractions joined with the fpa-fod database
+  summary_name <- file.path(anthro_extract, paste0('distance_fpa_', k, '.rds'))
+  write_rds(fpa_summaries_full, summary_name)
 
-  shu_df %>%
-    write_rds(., file.path(anthro_extract, "seasonal_housing_units_extraction.rds"))
-
-  system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
-  rm(list = c('shu_summaries', 'shu_list', 'shu_df'))
-
-}
-
-# Population
-if (!file.exists(file.path(anthro_extract, "pop_extraction.rds"))) {
-  pop_list <- extraction_vars %>%
-    filter(variable == 'population') %>%
-    split(., .$STATE)
-
-  sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfSource('src/functions/helper_functions.R')
-
-  pop_summaries <- sfLapply(pop_list, function (input_tibble) {
-    require(tidyverse)
-    require(magrittr)
-    require(lubridate)
-
-    sub_tib <- bind_cols(input_tibble) %>%
-      as_tibble
-    unique_ids <- unique(sub_tib$FPA_ID)
-
-    lapply(unique_ids,
-           FUN = impute_in_parallel_ciesin,
-           data = sub_tib)
-  }
-  )
-
-  sfStop()
-
-  pop_df <- flattenlist(pop_summaries) %>%
-    bind_rows() %>%
-    distinct(.keep_all = TRUE) %>%
-    mutate(population = population_lag_0,
-           population = if_else(population < 0, 0, population)) %>%
-    dplyr::select(FPA_ID, population)
-
-  pop_df %>%
-    write_rds(., file.path(anthro_extract, "bpov_200_extraction.rds"))
-
-  system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
-  rm(list = c('pop_summaries', 'pop_list', 'pop_df'))
-
-}
-
-# Population with a high school degree
-if (!file.exists(file.path(anthro_extract, "hsd_extraction.rds"))) {
-  hsd_list <- extraction_vars %>%
-    filter(variable == 'highschool_degree') %>%
-    split(., .$STATE)
-
-  sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfSource('src/functions/helper_functions.R')
-
-  hsd_summaries <- sfLapply(hsd_list, function (input_tibble) {
-    require(tidyverse)
-    require(magrittr)
-    require(lubridate)
-
-    sub_tib <- bind_cols(input_tibble) %>%
-      as_tibble
-    unique_ids <- unique(sub_tib$FPA_ID)
-
-    lapply(unique_ids,
-           FUN = impute_in_parallel_ciesin,
-           data = sub_tib)
-  }
-  )
-
-  sfStop()
-
-  hsd_df <- flattenlist(hsd_summaries) %>%
-    bind_rows() %>%
-    distinct(.keep_all = TRUE) %>%
-    mutate(highschool_degree = highschool_degree_lag_0,
-           highschool_degree = if_else(highschool_degree < 0, 0, highschool_degree)) %>%
-    dplyr::select(FPA_ID, highschool_degree)
-
-  hsd_df %>%
-    write_rds(., file.path(anthro_extract, "hsd_extraction.rds"))
-
-  system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
-  rm(list = c('hsd_summaries', 'hsd_list', 'hsd_df'))
-
-}
-
-# Population with a bachelors degree
-if (!file.exists(file.path(anthro_extract, "bad_extraction.rds"))) {
-  bad_list <- extraction_vars %>%
-    filter(variable == 'bachelors_degree') %>%
-    split(., .$STATE)
-
-  sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfSource('src/functions/helper_functions.R')
-
-  bad_summaries <- sfLapply(bad_list, function (input_tibble) {
-    require(tidyverse)
-    require(magrittr)
-    require(lubridate)
-
-    sub_tib <- bind_cols(input_tibble) %>%
-      as_tibble
-    unique_ids <- unique(sub_tib$FPA_ID)
-
-    lapply(unique_ids,
-           FUN = impute_in_parallel_ciesin,
-           data = sub_tib)
-  }
-  )
-
-  sfStop()
-
-  bad_df <- flattenlist(bad_summaries) %>%
-    bind_rows() %>%
-    distinct(.keep_all = TRUE) %>%
-    mutate(highschool_degree = highschool_degree_lag_0,
-           highschool_degree = if_else(highschool_degree < 0, 0, highschool_degree)) %>%
-    dplyr::select(FPA_ID, highschool_degree)
-
-  bad_df %>%
-    write_rds(., file.path(anthro_extract, "bad_extraction.rds"))
-
-  system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
-  rm(list = c('bad_summaries', 'bad_list', 'bad_df'))
-
-}
-
-# Below the poverty line
-if (!file.exists(file.path(anthro_extract, "bpov_extraction.rds"))) {
-  bpv_list <- extraction_vars %>%
-    filter(variable == 'pop_poverty_below_line') %>%
-    split(., .$STATE)
-
-  sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfSource('src/functions/helper_functions.R')
-
-  bpv_summaries <- sfLapply(bpv_list, function (input_tibble) {
-    require(tidyverse)
-    require(magrittr)
-    require(lubridate)
-
-    sub_tib <- bind_cols(input_tibble) %>%
-      as_tibble
-    unique_ids <- unique(sub_tib$FPA_ID)
-
-    lapply(unique_ids,
-           FUN = impute_in_parallel_ciesin,
-           data = sub_tib)
-  }
-  )
-
-  sfStop()
-
-  bpv_df <- flattenlist(bpv_summaries) %>%
-    bind_rows() %>%
-    distinct(.keep_all = TRUE) %>%
-    mutate(pop_poverty_below_line = pop_poverty_below_line_lag_0,
-           pop_poverty_below_line = if_else(pop_poverty_below_line < 0, 0, pop_poverty_below_line)) %>%
-    dplyr::select(FPA_ID, pop_poverty_below_line)
-
-  bpv_df %>%
-    write_rds(., file.path(anthro_extract, "bpov_extraction.rds"))
-
-  system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
-  rm(list = c('bpv_summaries', 'bpv_list', 'bpv_df'))
-
-}
-
-# Below the poverty line by 50%
-if (!file.exists(file.path(anthro_extract, "bpov_50_extraction.rds"))) {
-  bpv50_list <- extraction_vars %>%
-    filter(variable == 'pop_poverty_below_50') %>%
-    split(., .$STATE)
-
-  sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfSource('src/functions/helper_functions.R')
-
-  bpv50_summaries <- sfLapply(bpv50_list, function (input_tibble) {
-    require(tidyverse)
-    require(magrittr)
-    require(lubridate)
-
-    sub_tib <- bind_cols(input_tibble) %>%
-      as_tibble
-    unique_ids <- unique(sub_tib$FPA_ID)
-
-    lapply(unique_ids,
-           FUN = impute_in_parallel_ciesin,
-           data = sub_tib)
-  }
-  )
-
-  sfStop()
-
-  bpv50_df <- flattenlist(bpv50_summaries) %>%
-    bind_rows() %>%
-    distinct(.keep_all = TRUE) %>%
-    mutate(pop_poverty_below_50 = pop_poverty_below_50_lag_0,
-           pop_poverty_below_50 = if_else(pop_poverty_below_50 < 0, 0, pop_poverty_below_50)) %>%
-    dplyr::select(FPA_ID, pop_poverty_below_50)
-
-  bpv50_df %>%
-    write_rds(., file.path(anthro_extract, "bpov_50_extraction.rds"))
-
-  system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
-  rm(list = c('bpv50_summaries', 'bpv50_list', 'bpv50_df'))
-
-}
-
-# Below the poverty line by 200%
-if (!file.exists(file.path(anthro_extract, "bpov_200_extraction.rds"))) {
-  bpv200_list <- extraction_vars %>%
-    filter(variable == 'pop_poverty_below_200') %>%
-    split(., .$STATE)
-
-  sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfSource('src/functions/helper_functions.R')
-
-  bpv200_summaries <- sfLapply(bpv200_list, function (input_tibble) {
-    require(tidyverse)
-    require(magrittr)
-    require(lubridate)
-
-    sub_tib <- bind_cols(input_tibble) %>%
-      as_tibble
-    unique_ids <- unique(sub_tib$FPA_ID)
-
-    lapply(unique_ids,
-           FUN = impute_in_parallel_ciesin,
-           data = sub_tib)
-  }
-  )
-
-  sfStop()
-
-  bpv200_df <- flattenlist(bpv200_summaries) %>%
-    bind_rows() %>%
-    distinct(.keep_all = TRUE) %>%
-    mutate(pop_poverty_below_200 = pop_poverty_below_200_lag_0,
-           pop_poverty_below_200 = if_else(pop_poverty_below_200 < 0, 0, pop_poverty_below_200)) %>%
-    dplyr::select(FPA_ID, pop_poverty_below_200)
-
-  bpv200_df %>%
-    write_rds(., file.path(anthro_extract, "bpov_200_extraction.rds"))
-
-  system(paste0("aws s3 sync ", summary_dir, " ", s3_proc_extractions))
-  rm(list = c('bpv200_summaries', 'bpv200_list', 'bpv200_df'))
-
-}
+  # push to S3
+  # system('aws s3 sync data/extractions s3://earthlab-modeling-human-ignitions/extractions')
+} 
