@@ -20,6 +20,8 @@ all <- st_read("data/extractions/fpa_w_all_landcover.gpkg") %>%
   st_set_geometry(NULL) %>%
   as_tibble()
 
+rm(ter)
+
 # checking to make sure they're all 1.8 million rows and joining -------------------------------
 for(i in 1:length(climate_files)){
   x = readRDS(paste0("data/extractions/climate_summaries/",climate_files[i])) %>%
