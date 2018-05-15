@@ -26,7 +26,7 @@ rm(ter)
 for(i in 1:length(climate_files)){
   x = readRDS(paste0("data/extractions/climate_summaries/",climate_files[i])) %>%
     as_tibble()
-  print(paste(climate_files[i],nrow(x)))
+  print(paste(i, climate_files[i], format(object.size(all), units = "auto")))
   all <- left_join(all,y=x, by = "FPA_ID")
   rm(x)
   gc()
