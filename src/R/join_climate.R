@@ -26,6 +26,8 @@ for(i in 1:length(climate_files)){
     as_tibble()
   print(paste(climate_files[i],nrow(x)))
   all <- left_join(all,y=x, by = "FPA_ID")
+  rm(x)
+  gc()
 }
 
 # write to s3 --------------------------------------------------------------------------------
